@@ -44,14 +44,14 @@ RUN groupadd --gid 1000 regowg \
 VOLUME /daten
 USER regowg
 
-EXPOSE 8080
+EXPOSE 5160
 
 # Gefragt wird der laufende Dienst, nicht die Einstellungen auf der Platte -
 # ein "--pruefen" antwortet auch dann noch mit Ja, wenn der Webserver laengst
 # steht. Alle sechzig Sekunden, weil jeder Aufruf ein eigener Prozess ist und
 # das auf einem Pi nicht nichts kostet.
 HEALTHCHECK --interval=60s --timeout=8s --start-period=30s \
-  CMD ["/programm/regowintergarden", "--gesundheit", "--port", "8080"]
+  CMD ["/programm/regowintergarden", "--gesundheit", "--port", "5160"]
 
 ENTRYPOINT ["/programm/regowintergarden"]
-CMD ["--port", "8080"]
+CMD ["--port", "5160"]

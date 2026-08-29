@@ -30,7 +30,7 @@ ZIEL="/opt/regowintergarden"
 DATEN="${REGOWG_HOME:-/etc/regowintergarden}"
 DIENST="regowintergarden"
 BENUTZER="regowg"
-PORT="${REGOWG_PORT:-8080}"
+PORT="${REGOWG_PORT:-5160}"
 
 sagen() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 warnen() { printf '\033[1;33m==>\033[0m %s\n' "$*"; }

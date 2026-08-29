@@ -43,7 +43,7 @@ public sealed class Einstellungen
     [JsonPropertyName("fernbedienung")]
     public bool Fernbedienung { get; set; }
 
-    /// <summary>Die Adresse des führenden Dienstes, etwa <c>http://192.168.1.229:5200</c>.</summary>
+    /// <summary>Die Adresse des führenden Dienstes, etwa <c>http://192.168.1.229:5160</c>.</summary>
     [JsonPropertyName("fernadresse")]
     public string Fernadresse { get; set; } = "";
 

@@ -182,7 +182,7 @@ public sealed class Wintergartendienst : IAsyncDisposable
         {
             fern.Dispose();
             Stand = Busstand.Fehler;
-            StandGeaendert?.Invoke(Stand, "Keine Adresse eingetragen, etwa 192.168.1.229:5200");
+            StandGeaendert?.Invoke(Stand, "Keine Adresse eingetragen, etwa 192.168.1.229:5160");
             return;
         }
 

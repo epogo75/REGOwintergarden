@@ -1045,6 +1045,37 @@ public static class Program
                 "das Antriebsformular hat " + feld);
         }
 
+        // Der Verlauf muss auch ohne Werte etwas zeigen. Eine Ueberschrift,
+        // unter der nichts steht, sieht aus wie ein Fehler im Programm -
+        // dabei fehlt nur die Adresse oder der Bus.
+        dienst.Verlauf.Abstand = TimeSpan.Zero;
+        for (var i = 0; i < 5; i++) dienst.Verlauf.Merken(new Wetterlage(), zeitpunkt.AddMinutes(i));
+        var ohneWerte = REGOwintergarden.Web.Webseite.Verlaufsseite(dienst, zeitpunkt.AddHours(1), 24);
+        Check.Das(ohneWerte.Contains("class=\"kurve\"", StringComparison.Ordinal),
+            "der Verlauf zeichnet den Rahmen auch ohne Werte");
+        Check.Das(ohneWerte.Contains("keine Werte im Zeitraum", StringComparison.Ordinal),
+            "und schreibt hinein, dass nichts da ist");
+        Check.Das(ohneWerte.Contains("class=\"netz\"", StringComparison.Ordinal),
+            "mit Netzlinien");
+
+        // Und mit Werten die Kurve samt Skala.
+        for (var i = 0; i < 30; i++)
+        {
+            dienst.Verlauf.Merken(new Wetterlage
+            {
+                Aussen = new Messwert(18 + i * 0.4, zeitpunkt.AddMinutes(i)),
+                Innen = new Messwert(22 + i * 0.2, zeitpunkt.AddMinutes(i)),
+                Wind = new Messwert(3 + i * 0.1, zeitpunkt.AddMinutes(i)),
+            }, zeitpunkt.AddMinutes(10 + i));
+        }
+        var mitWerten = REGOwintergarden.Web.Webseite.Verlaufsseite(dienst, zeitpunkt.AddHours(1), 24);
+        Check.Das(mitWerten.Contains("class=\"linie eins\"", StringComparison.Ordinal),
+            "mit Werten entsteht eine Kurve");
+        Check.Das(mitWerten.Contains("class=\"linie zwei\"", StringComparison.Ordinal),
+            "und die zweite daneben");
+        Check.Das(mitWerten.Contains("class=\"achse\"", StringComparison.Ordinal),
+            "die Skala steht dabei - eine Kurve ohne Skala ist nur ein Muster");
+
         Check.Das(seiten[6].Item2.Contains("action=\"/zeit\"", StringComparison.Ordinal),
             "Schaltzeiten lassen sich anlegen");
         Check.Das(seiten[7].Item2.Contains("name=\"gateway\"", StringComparison.Ordinal),
@@ -1108,7 +1139,7 @@ public static class Program
     {
         Check.Abschnitt("Fernbedienung");
 
-        Check.Gleich("http://192.168.1.229:5200", Fernsteuerung.Aufraeumen("192.168.1.229:5200"),
+        Check.Gleich("http://192.168.1.229:5160", Fernsteuerung.Aufraeumen("192.168.1.229:5160"),
             "eine getippte Adresse bekommt ihr http:// davor");
         Check.Gleich("http://pi:8080", Fernsteuerung.Aufraeumen(" http://pi:8080/ "),
             "und ein Schraegstrich am Ende faellt weg");
@@ -1168,7 +1199,7 @@ public static class Program
         // ab - und traege die Gatewayadresse des anderen ein.
         var meine = new Einstellungen
         {
-            Fernbedienung = true, Fernadresse = "http://pi:5200", Gateway = "", Anlage = new Anlage(),
+            Fernbedienung = true, Fernadresse = "http://pi:5160", Gateway = "", Anlage = new Anlage(),
         };
         var fremd = "{\"gateway\":\"192.168.1.10:3671\",\"fernbedienung\":false,"
                     + "\"anlage\":" + System.Text.Json.JsonSerializer.Serialize(Anlage.Beispiel()) + "}";

@@ -18,10 +18,10 @@ services:
       - ./daten:/daten
     environment:
       - TZ=Europe/Berlin
-    command: ["--port", "8080"]
+    command: ["--port", "5160"]
 
 # Ohne host-Netz - nur sinnvoll, wenn das Gateway fest eingetragen ist und
 # der Tunnel durch die Adressumsetzung kommt:
 #
 #   ports:
-#     - "8080:8080"
+#     - "5160:5160"

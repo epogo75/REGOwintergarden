@@ -417,17 +417,24 @@ public static class Webseite
         if (punkte.Count < 2)
         {
             html.Append("<div class=\"karte\"><p>Noch nichts aufgezeichnet. Die Aufzeichnung "
-                        + "beginnt mit dem ersten Takt und schreibt je Minute eine Zeile.</p></div>");
+                        + "beginnt mit dem ersten Takt und schreibt je Minute eine Zeile - nach "
+                        + "ein paar Minuten stehen hier die ersten Kurven.</p>");
+            html.Append("<p class=\"klein\">Ist der Dienst gerade erst gestartet, ist das der "
+                        + "Normalfall. Bleibt es dabei, fehlt der Bus: ohne Messwerte gibt es "
+                        + "nichts aufzuzeichnen.</p></div>");
             Fuss(html, "");
             return html.ToString();
         }
 
         Kurve(html, "Temperatur", "&deg;C", punkte, ereignisse, von, jetzt,
-            p => p.Innen, p => p.Aussen, "drinnen", "draussen");
+            p => p.Innen, p => p.Aussen, "drinnen", "draussen",
+            "eine Adresse f&uuml;r drinnen oder draussen und ein Wert darauf");
         Kurve(html, "Wind", "m/s", punkte, ereignisse, von, jetzt,
-            p => p.Wind, _ => null, "Wind", "");
+            p => p.Wind, _ => null, "Wind", "",
+            "die Adresse f&uuml;r die Windgeschwindigkeit und ein Wert darauf");
         Kurve(html, "Helligkeit", "Lux", punkte, ereignisse, von, jetzt,
-            p => p.Helligkeit, _ => null, "Helligkeit", "");
+            p => p.Helligkeit, _ => null, "Helligkeit", "",
+            "eine der drei Helligkeitsadressen und ein Wert darauf");
 
         if (ereignisse.Count > 0)
         {
@@ -461,9 +468,9 @@ public static class Webseite
         IReadOnlyList<Messpunkt> punkte, IReadOnlyList<Ereignis> ereignisse,
         DateTime von, DateTime bis,
         Func<Messpunkt, double?> erste, Func<Messpunkt, double?> zweite,
-        string nameEins, string nameZwei)
+        string nameEins, string nameZwei, string woher)
     {
-        const int breite = 900, hoehe = 180, rand = 4;
+        const int breite = 900, hoehe = 180, rand = 12, links = 46;
 
         double? klein = null, gross = null;
         foreach (var p in punkte)
@@ -475,36 +482,91 @@ public static class Webseite
                 gross = gross is null ? w : Math.Max(gross.Value, w);
             }
         }
-        if (klein is null || gross is null) return;
-        if (Math.Abs(gross.Value - klein.Value) < 0.001) { klein -= 1; gross += 1; }
 
+        // Kein Wert heisst nicht: keine Kurve zeigen. Eine Ueberschrift, unter
+        // der nichts steht, sieht aus wie ein Fehler im Programm - dabei fehlt
+        // nur die Adresse oder der Bus. Also wird der Rahmen gezeichnet und
+        // hineingeschrieben, woran es liegt.
+        var leer = klein is null || gross is null;
         var spanne = (bis - von).TotalSeconds;
         if (spanne <= 0) return;
 
-        html.Append("<h2>").Append(titel).Append(" &middot; ").Append(Zahl(klein.Value))
-            .Append(" bis ").Append(Zahl(gross.Value)).Append(' ').Append(einheit).Append("</h2>");
+        if (leer) { klein = 0; gross = 1; }
+        else if (Math.Abs(gross!.Value - klein!.Value) < 0.001) { klein -= 1; gross += 1; }
+
+        html.Append("<h2>").Append(titel);
+        if (!leer)
+        {
+            html.Append(" &middot; ").Append(Zahl(klein!.Value)).Append(" bis ")
+                .Append(Zahl(gross!.Value)).Append(' ').Append(einheit);
+        }
+        html.Append("</h2>");
+
         html.Append("<div class=\"karte\"><svg class=\"kurve\" viewBox=\"0 0 ")
             .Append(breite.ToString(CultureInfo.InvariantCulture)).Append(' ')
-            .Append(hoehe.ToString(CultureInfo.InvariantCulture))
-            .Append("\" preserveAspectRatio=\"none\">");
+            .Append(hoehe.ToString(CultureInfo.InvariantCulture)).Append("\">");
+
+        // Drei Linien und ihre Beschriftung. Ohne Skala ist eine Kurve nur ein
+        // Muster: man sieht, dass etwas gestiegen ist, aber nicht worauf.
+        for (var i = 0; i <= 2; i++)
+        {
+            var y = rand + i * (hoehe - 2 * rand) / 2.0;
+            var wert = gross!.Value - i * (gross.Value - klein!.Value) / 2.0;
+            html.Append("<line class=\"netz\" x1=\"").Append(links.ToString(CultureInfo.InvariantCulture))
+                .Append("\" y1=\"").Append(Zahl(y)).Append("\" x2=\"")
+                .Append(breite.ToString(CultureInfo.InvariantCulture)).Append("\" y2=\"")
+                .Append(Zahl(y)).Append("\"/>");
+            if (leer) continue;
+            html.Append("<text class=\"achse\" x=\"").Append((links - 5).ToString(CultureInfo.InvariantCulture))
+                .Append("\" y=\"").Append(Zahl(y + 3.5)).Append("\" text-anchor=\"end\">")
+                .Append(Zahl(wert)).Append("</text>");
+        }
+
+        // Die Zeitachse: Anfang, Mitte, Ende. Mehr braucht es nicht, und mehr
+        // waere auf einem Tablet auch nicht mehr lesbar.
+        for (var i = 0; i <= 2; i++)
+        {
+            var x = links + i * (breite - links) / 2.0;
+            var zeit = von.AddSeconds(spanne * i / 2.0);
+            html.Append("<text class=\"achse\" x=\"").Append(Zahl(x))
+                .Append("\" y=\"").Append((hoehe - 1).ToString(CultureInfo.InvariantCulture))
+                .Append("\" text-anchor=\"").Append(i == 0 ? "start" : i == 2 ? "end" : "middle")
+                .Append("\">")
+                .Append(zeit.ToString(spanne > 3 * 24 * 3600 ? "dd.MM." : "dd.MM. HH:mm",
+                    CultureInfo.InvariantCulture))
+                .Append("</text>");
+        }
+
+        if (leer)
+        {
+            html.Append("<text class=\"leer\" x=\"").Append(Zahl((breite + links) / 2.0))
+                .Append("\" y=\"").Append(Zahl(hoehe / 2.0)).Append("\" text-anchor=\"middle\">")
+                .Append("keine Werte im Zeitraum</text></svg>");
+            html.Append("<p class=\"klein\">Dazu fehlt ").Append(woher)
+                .Append(". Ohne Wert bleibt die Kurve leer - eine erfundene Linie w&auml;re "
+                        + "schlimmer als gar keine.</p></div>");
+            return;
+        }
 
         // Erst die Eingriffe, damit die Kurven darueber liegen.
         foreach (var e in ereignisse)
         {
             if (e.Zeit < von || e.Zeit > bis) continue;
-            var x = (e.Zeit - von).TotalSeconds / spanne * breite;
+            var x = links + (e.Zeit - von).TotalSeconds / spanne * (breite - links);
             html.Append("<line class=\"eingriff ").Append(Klasse(e.Stufe)).Append("\" x1=\"")
                 .Append(Zahl(x)).Append("\" y1=\"0\" x2=\"").Append(Zahl(x)).Append("\" y2=\"")
-                .Append(hoehe.ToString(CultureInfo.InvariantCulture)).Append("\"><title>")
+                .Append((hoehe - rand).ToString(CultureInfo.InvariantCulture)).Append("\"><title>")
                 .Append(Sicher(e.Zeit.ToString("dd.MM. HH:mm", CultureInfo.InvariantCulture)
                                + " " + e.Antrieb + ": " + e.Grund))
                 .Append("</title></line>");
         }
 
-        Linie(html, punkte, erste, von, spanne, klein.Value, gross.Value, breite, hoehe, rand, "eins");
+        Linie(html, punkte, erste, von, spanne, klein!.Value, gross!.Value, breite, hoehe, rand,
+            links, "eins");
         if (nameZwei.Length > 0)
         {
-            Linie(html, punkte, zweite, von, spanne, klein.Value, gross.Value, breite, hoehe, rand, "zwei");
+            Linie(html, punkte, zweite, von, spanne, klein.Value, gross.Value, breite, hoehe, rand,
+                links, "zwei");
         }
 
         html.Append("</svg><p class=\"klein\"><span class=\"punkt eins\"></span>").Append(nameEins);
@@ -517,7 +579,7 @@ public static class Webseite
 
     private static void Linie(StringBuilder html, IReadOnlyList<Messpunkt> punkte,
         Func<Messpunkt, double?> wert, DateTime von, double spanne, double klein, double gross,
-        int breite, int hoehe, int rand, string klasse)
+        int breite, int hoehe, int rand, int links, string klasse)
     {
         var pfad = new StringBuilder();
         var offen = false;
@@ -530,7 +592,7 @@ public static class Webseite
                 offen = false;
                 continue;
             }
-            var x = (p.Zeit - von).TotalSeconds / spanne * breite;
+            var x = links + (p.Zeit - von).TotalSeconds / spanne * (breite - links);
             var y = hoehe - rand - (w - klein) / (gross - klein) * (hoehe - 2 * rand);
             pfad.Append(offen ? 'L' : 'M').Append(Zahl(x)).Append(' ').Append(Zahl(y)).Append(' ');
             offen = true;
@@ -1379,7 +1441,10 @@ public static class Webseite
         .blass{color:var(--blass);font-style:normal}
         .zeitraum a{margin-right:12px;font-size:13px;color:var(--leise)}
         .zeitraum a.hier{color:var(--schrift);font-weight:600}
-        .kurve{width:100%;height:180px}
+        .kurve{width:100%;height:190px;display:block}
+        .netz{stroke:var(--linie);stroke-width:1}
+        .achse{font-size:10px;fill:var(--blass)}
+        .leer{font-size:13px;fill:var(--blass)}
         .linie{fill:none;stroke-width:1.6}
         .linie.eins{stroke:var(--gruen)} .linie.zwei{stroke:#2a6099}
         .eingriff{stroke-width:1;opacity:.5}

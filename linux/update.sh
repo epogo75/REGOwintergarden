@@ -114,7 +114,7 @@ elif command -v systemctl >/dev/null 2>&1 && [ -f "/etc/systemd/system/$DIENST.s
   warnen "Der Dienst lief nicht - er bleibt aus. Starten mit: systemctl start $DIENST"
 else
   warnen "Kein systemd-Dienst eingerichtet. Von Hand starten:"
-  warnen "  REGOWINTERGARDEN_HOME=/etc/regowintergarden $ZIEL/regowintergarden --port 5200"
+  warnen "  REGOWINTERGARDEN_HOME=/etc/regowintergarden $ZIEL/regowintergarden --port 5160"
   exit 0
 fi
 
@@ -122,7 +122,7 @@ fi
 # Die Portnummer steht in der Diensteinheit - dieselbe, mit der eingerichtet
 # wurde. Sie hier erneut zu raten waere die Gelegenheit, sich zu irren.
 PORT="$(sed -n 's/.*--port[= ]\([0-9]\+\).*/\1/p' "/etc/systemd/system/$DIENST.service" 2>/dev/null | head -n1)"
-[ -n "${PORT:-}" ] || PORT=8080
+[ -n "${PORT:-}" ] || PORT=5160
 
 sleep 3
 if "$ZIEL/regowintergarden" --gesundheit --port "$PORT" >/dev/null 2>&1; then

@@ -30,7 +30,7 @@ public static class Programm
         }
 
         var ordner = Argument(args, "--home") ?? Einstellungen.StandardOrdner;
-        var port = 8080;
+        var port = 5160;
         if (Argument(args, "--port") is { } text
             && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var gelesen))
         {
@@ -118,7 +118,7 @@ public static class Programm
     private const string Hilfe =
         "REGOwintergarden - Wintergartensteuerung ueber KNX\n\n"
         + "  regowintergarden                 startet Steuerung und Weboberflaeche\n"
-        + "  regowintergarden --port 8080     andere Portnummer\n"
+        + "  regowintergarden --port 5160     andere Portnummer\n"
         + "  regowintergarden --home <Ordner> anderer Einstellungsordner\n"
         + "  regowintergarden --pruefen       liest die Einstellungen und beendet sich\n"
         + "  regowintergarden --gesundheit    fragt einen laufenden Dienst, 0 wenn er lebt\n\n"

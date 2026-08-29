@@ -373,7 +373,7 @@ ssh pi@wintergarten 'sudo REGOWG_DATEI=/tmp/regowintergarden sh /tmp/install.sh'
 Das Skript erkennt die Architektur (arm64, armhf, x86-64), legt das Programm
 nach `/opt/regowintergarden`, richtet einen eigenen Benutzer ohne Anmeldung
 ein, legt die Einstellungen unter `/etc/regowintergarden` an und startet den
-systemd-Dienst. Danach steht die Oberfläche unter `http://<pi>:8080`.
+systemd-Dienst. Danach steht die Oberfläche unter `http://<pi>:5160`.
 
 Ohne `REGOWG_DATEI` holt es sich das Programm selbst von der
 Veröffentlichungsseite:
@@ -447,7 +447,7 @@ die Wahl:
 | | |
 |---|---|
 | **Dieses Programm steuert selbst** | eigener KNX-Tunnel, eigene Automatik — der Fall ohne Pi |
-| **Ein anderer Rechner führt** | Adresse des Dienstes eintragen, etwa `192.168.1.229:5200` |
+| **Ein anderer Rechner führt** | Adresse des Dienstes eintragen, etwa `192.168.1.229:5160` |
 
 **Gesteuert wird immer nur an einer Stelle.** In der Fernbedienung öffnet das
 Windows-Programm keinen KNX-Tunnel: die Messwerte kommen vom führenden Dienst,
