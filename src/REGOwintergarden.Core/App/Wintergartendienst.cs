@@ -115,6 +115,18 @@ public sealed class Wintergartendienst : IAsyncDisposable
     /// <summary>Ob die Automatik gerade laeuft.</summary>
     public bool Laeuft => _lauf is not null;
 
+    /// <summary>Seit wann dieses Programm laeuft.</summary>
+    public DateTime Gestartet { get; } = DateTime.Now;
+
+    /// <summary>
+    /// Wann zuletzt gerechnet wurde.
+    ///
+    /// Das ist die Frage, die man einem Dienst ohne Bildschirm wirklich
+    /// stellt: nicht „laeuft der Prozess" - der laeuft auch, wenn die
+    /// Schleife haengt -, sondern „wann hat er zuletzt etwas getan".
+    /// </summary>
+    public DateTime? LetzterTakt { get; private set; }
+
     // ---- Fernbedienung -----------------------------------------------------
 
     /// <summary>
@@ -544,6 +556,7 @@ public sealed class Wintergartendienst : IAsyncDisposable
     public async Task TaktAsync(DateTime jetzt, CancellationToken ct = default)
     {
         var anlage = Anlage;
+        LetzterTakt = jetzt;
 
         // Fernbedienung: erst den Stand des Chefs holen, dann daraus dasselbe
         // ausrechnen wie er - aber nichts davon ausfuehren und nichts

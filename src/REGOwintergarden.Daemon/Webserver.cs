@@ -125,6 +125,31 @@ public sealed class Webserver : IDisposable
                         Webseite.Bauen(_dienst, DateTime.Now));
                     return;
 
+                case "/automatik":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Automatikseite(_dienst, DateTime.Now));
+                    return;
+
+                case "/verlauf":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Verlaufsseite(_dienst, DateTime.Now,
+                            Zahl(kontext.Request.QueryString["stunden"], 24)));
+                    return;
+
+                case "/konfig":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Konfigseite(_dienst, DateTime.Now,
+                            kontext.Request.QueryString["gut"] is null ? "" : "&Uuml;bernommen."));
+                    return;
+
+                case "/schalten":
+                    await SchaltenAsync(kontext).ConfigureAwait(false);
+                    return;
+
+                case "/einstellen":
+                    await EinstellenAsync(kontext).ConfigureAwait(false);
+                    return;
+
                 case "/lage.json":
                     Senden(kontext, 200, "application/json; charset=utf-8", Lage());
                     return;
@@ -218,6 +243,95 @@ public sealed class Webserver : IDisposable
         Senden(kontext, gut ? 200 : 502, "text/plain; charset=utf-8",
             gut ? "gesendet" : "nicht gesendet");
     }
+
+    /// <summary>Eine Regel ein- oder ausschalten.</summary>
+    private async Task SchaltenAsync(HttpListenerContext kontext)
+    {
+        var felder = await FelderAsync(kontext).ConfigureAwait(false);
+        felder.TryGetValue("regel", out var regel);
+        var an = felder.TryGetValue("an", out var wert) && wert == "1";
+
+        var anlage = _dienst.Anlage;
+        switch (regel)
+        {
+            case "hauptschalter": anlage.AutomatikAktiv = an; break;
+            case "wind": anlage.WindschutzAktiv = an; break;
+            case "regen": anlage.RegenschutzAktiv = an; break;
+            case "frost": anlage.FrostschutzAktiv = an; break;
+            case "beschattung": anlage.BeschattungAktiv = an; break;
+            case "lueftung": anlage.LueftungAktiv = an; break;
+            case "uhr": anlage.ZeitschaltuhrAktiv = an; break;
+            case "waermegewinn": anlage.WaermegewinnAktiv = an; break;
+            case "hitzevorsorge": anlage.HitzevorsorgeAktiv = an; break;
+            case "nachtauskuehlung": anlage.NachtauskuehlungAktiv = an; break;
+            case "vorhersage": anlage.VorhersageAktiv = an; break;
+            default:
+                Senden(kontext, 400, "text/plain; charset=utf-8", "unbekannte Regel");
+                return;
+        }
+
+        _melden("Automatik", regel + (an ? " eingeschaltet" : " ausgeschaltet"), false);
+        Sichern();
+        Zurueck(kontext, "/automatik");
+    }
+
+    /// <summary>Grenzen und Zeiten aus dem Formular uebernehmen.</summary>
+    private async Task EinstellenAsync(HttpListenerContext kontext)
+    {
+        var felder = await FelderAsync(kontext).ConfigureAwait(false);
+        var anlage = _dienst.Anlage;
+
+        // Was nicht als Zahl lesbar ist, bleibt stehen. Ein leeres Feld soll
+        // keine Grenze auf null setzen - das waere die Beschattung, die nie
+        // mehr abschaltet.
+        anlage.Helligkeitsschwelle = Zahl(felder, "helligkeit", anlage.Helligkeitsschwelle);
+        anlage.EinschaltverzoegerungMinuten = Zahl(felder, "ein", anlage.EinschaltverzoegerungMinuten);
+        anlage.AusschaltverzoegerungMinuten = Zahl(felder, "aus", anlage.AusschaltverzoegerungMinuten);
+        anlage.LueftungAb = Zahl(felder, "lueftungab", anlage.LueftungAb);
+        anlage.Lueftungsposition = Zahl(felder, "lueftungspos", anlage.Lueftungsposition);
+        anlage.WindgrenzeAusgabe = Zahl(felder, "windausgabe", anlage.WindgrenzeAusgabe);
+        anlage.AusgabetaktSekunden = Zahl(felder, "ausgabetakt", anlage.AusgabetaktSekunden);
+        anlage.HandsperreMinuten = Zahl(felder, "handsperre", anlage.HandsperreMinuten);
+        anlage.TaktSekunden = Zahl(felder, "takt", anlage.TaktSekunden);
+
+        _melden("Konfiguration", "ueber die Weboberflaeche geaendert", false);
+        Sichern();
+        Zurueck(kontext, "/konfig?gut=1");
+    }
+
+    /// <summary>
+    /// Sofort in die Datei. Wer am Tablet eine Grenze aendert, erwartet nicht,
+    /// dass sie beim naechsten Neustart des Dienstes wieder dasteht wie zuvor.
+    /// </summary>
+    private void Sichern()
+    {
+        try { _dienst.Einstellungen.Speichern(_ordner); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _melden("nicht gespeichert", ex.Message, true);
+        }
+    }
+
+    /// <summary>
+    /// Nach dem Absenden zurueck auf die Seite - sonst zeigt der Browser eine
+    /// leere Antwort, und ein erneutes Laden schaltet noch einmal.
+    /// </summary>
+    private static void Zurueck(HttpListenerContext kontext, string wohin)
+    {
+        kontext.Response.StatusCode = 303;
+        kontext.Response.RedirectLocation = wohin;
+        kontext.Response.Close();
+    }
+
+    private static double Zahl(Dictionary<string, string> felder, string name, double sonst) =>
+        felder.TryGetValue(name, out var text)
+        && double.TryParse(text.Replace(',', '.'), NumberStyles.Float,
+            CultureInfo.InvariantCulture, out var wert)
+            ? wert
+            : sonst;
+
+    private static int Zahl(string? text, int sonst) =>
+        int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var wert) ? wert : sonst;
 
     /// <summary>Die Rohwerte des Busses - die Grundlage fuer das zweite Gesicht.</summary>
     private string Buswerte()

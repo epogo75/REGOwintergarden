@@ -958,6 +958,62 @@ public static class Program
         Check.Das(seite.Contains("Windschutz", StringComparison.Ordinal),
             "ohne Wetterstation meldet auch die Seite den Windschutz");
 
+        // Das Menue gehoert auf jede Seite: eine Steuerung, bei der man die
+        // Automatikseite nur kennt, wenn man die Adresse weiss, hat sie nicht.
+        var seiten = new[]
+        {
+            ("Bedienung", seite),
+            ("Automatik", REGOwintergarden.Web.Webseite.Automatikseite(dienst, zeitpunkt)),
+            ("Verlauf", REGOwintergarden.Web.Webseite.Verlaufsseite(dienst, zeitpunkt, 24)),
+            ("Konfiguration", REGOwintergarden.Web.Webseite.Konfigseite(dienst, zeitpunkt, "")),
+        };
+        foreach (var (name, inhalt) in seiten)
+        {
+            Check.Das(inhalt.Contains("class=\"menue\"", StringComparison.Ordinal),
+                name + " hat das Menue");
+            Check.Das(inhalt.Contains("href=\"/automatik\"", StringComparison.Ordinal),
+                name + " fuehrt zur Automatik");
+            Check.Das(inhalt.Contains("</html>", StringComparison.Ordinal), name + " ist vollstaendig");
+        }
+
+        var automatik = seiten[1].Item2;
+        Check.Das(automatik.Contains("action=\"/schalten\"", StringComparison.Ordinal),
+            "die Regeln lassen sich schalten");
+        Check.Das(automatik.Contains("Windschutz", StringComparison.Ordinal), "der Windschutz steht dort");
+        Check.Das(automatik.Contains("Nachtausk", StringComparison.Ordinal),
+            "die Nachtauskuehlung auch");
+
+        Check.Das(seiten[3].Item2.Contains("action=\"/einstellen\"", StringComparison.Ordinal),
+            "die Konfiguration laesst sich aendern");
+
+        // Die Frage, die man einem Geraet ohne Bildschirm wirklich stellt.
+        // Gemessen wird am letzten Takt: der Webserver antwortet auch dann
+        // noch freundlich, wenn die Automatik laengst steht.
+        Check.Das(seite.Contains(
+                REGOwintergarden.Web.Webseite.Sicher(
+                    REGOwintergarden.Web.Webseite.Dienstzeile(dienst, zeitpunkt)),
+                StringComparison.Ordinal),
+            "die Seite sagt, ob der Dienst laeuft");
+        Check.Das(seite.Contains("uft seit", StringComparison.Ordinal), "und seit wann");
+        Check.Das(!seite.Contains("&amp;auml;", StringComparison.Ordinal),
+            "und zwar ohne doppelt entschaerfte Umlaute");
+
+        var steht = new Wintergartendienst(
+            new Einstellungen { Anlage = Anlage.Beispiel(), VorhersageHolen = false }, ordner);
+        Check.Das(REGOwintergarden.Web.Webseite.Dienstzeile(steht, zeitpunkt)
+                .Contains("steht", StringComparison.Ordinal),
+            "ein nicht gestarteter Dienst sagt das auch");
+        steht.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+        Check.Gleich("45 Sekunden", REGOwintergarden.Web.Webseite.Dauer(TimeSpan.FromSeconds(45)),
+            "Sekunden bleiben Sekunden");
+        Check.Gleich("5 Minuten", REGOwintergarden.Web.Webseite.Dauer(TimeSpan.FromMinutes(5)),
+            "daraus werden Minuten");
+        Check.Gleich("3 Stunden", REGOwintergarden.Web.Webseite.Dauer(TimeSpan.FromHours(3)),
+            "und Stunden");
+        Check.Gleich("4 Tagen", REGOwintergarden.Web.Webseite.Dauer(TimeSpan.FromDays(4)),
+            "und Tage");
+
         dienst.DisposeAsync().AsTask().GetAwaiter().GetResult();
         try { System.IO.Directory.Delete(ordner, recursive: true); }
         catch (System.IO.IOException) { }
