@@ -95,6 +95,7 @@ public static class Program
         Sicherheitskette();
         Verlauf();
         Oberflaeche();
+        Weboberflaeche();
         Symbol();
 
         return Check.Bericht();
@@ -902,6 +903,63 @@ public static class Program
 
         fenster.Close();
         dienst.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    // ===================================================================
+    // Die Weboberflaeche des Linux-Dienstes
+    // ===================================================================
+
+    /// <summary>
+    /// Baut die Seite, die auf dem Raspberry Pi im Browser steht.
+    ///
+    /// Sie wird hier mitgeprueft, obwohl sie dort laeuft: der Kern ist
+    /// derselbe, und eine Seite, die einen Antriebsnamen mit spitzer Klammer
+    /// nicht entschaerft, faellt sonst erst auf, wenn jemand einen Antrieb
+    /// „Dach &lt; Sued" nennt.
+    /// </summary>
+    private static void Weboberflaeche()
+    {
+        Check.Abschnitt("Weboberflaeche");
+
+        var ordner = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "REGOwintergarden-web-" + Guid.NewGuid().ToString("N"));
+        // Ohne Netz: die Vorhersage wuerde sonst bei jeder Pruefung ins
+        // Internet greifen und den Lauf von der Leitung abhaengig machen.
+        var einstellungen = new Einstellungen { Anlage = Anlage.Beispiel(), VorhersageHolen = false };
+        einstellungen.Anlage.Motoren[0].Name = "Markise <Sued> & West";
+        var dienst = new Wintergartendienst(einstellungen, ordner);
+
+        // Erst rechnen, dann zeichnen: die Seite zeigt die Lagen, und die
+        // entstehen im Takt. Ohne diesen Aufruf saehe man dieselbe leere
+        // Seite wie in der ersten Sekunde nach dem Start.
+        var zeitpunkt = new DateTime(2026, 7, 1, 14, 0, 0);
+        dienst.TaktAsync(zeitpunkt).GetAwaiter().GetResult();
+
+        var seite = REGOwintergarden.Web.Webseite.Bauen(dienst, zeitpunkt);
+
+        Check.Das(seite.StartsWith("<!doctype html>", StringComparison.Ordinal), "die Seite ist HTML");
+        Check.Das(seite.Contains("</html>", StringComparison.Ordinal), "und vollstaendig");
+        Check.Das(seite.Contains("Wintergarten", StringComparison.Ordinal), "der Anlagenname steht drin");
+        Check.Das(seite.Contains("<svg", StringComparison.Ordinal), "der Sonnenkompass wird gezeichnet");
+        Check.Das(seite.Contains("action=\"/fahren\"", StringComparison.Ordinal),
+            "und die Antriebe lassen sich bedienen");
+
+        // Der Name mit den spitzen Klammern darf die Seite nicht zerlegen.
+        Check.Das(!seite.Contains("<Sued>", StringComparison.Ordinal),
+            "spitze Klammern im Namen werden entschaerft");
+        Check.Das(seite.Contains("&lt;Sued&gt;", StringComparison.Ordinal), "und erscheinen als Text");
+        Check.Das(seite.Contains("&amp;", StringComparison.Ordinal), "das Kaufmannsund auch");
+
+        Check.Gleich("&lt;b&gt;", REGOwintergarden.Web.Webseite.Sicher("<b>"), "Sicher() entschaerft");
+        Check.Gleich("", REGOwintergarden.Web.Webseite.Sicher(null), "und vertraegt nichts");
+
+        // Ohne Wetterstation steht dort Windalarm - genau wie im Fenster.
+        Check.Das(seite.Contains("Windschutz", StringComparison.Ordinal),
+            "ohne Wetterstation meldet auch die Seite den Windschutz");
+
+        dienst.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        try { System.IO.Directory.Delete(ordner, recursive: true); }
+        catch (System.IO.IOException) { }
     }
 
     // ===================================================================

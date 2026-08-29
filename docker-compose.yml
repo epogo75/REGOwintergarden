@@ -1,0 +1,27 @@
+# REGOwintergarden mit Docker Compose.
+#
+#   docker compose up -d
+#
+# Netzwerkmodus host, und das mit Absicht: der KNX-Tunnel spricht UDP, und
+# die Suche nach dem Gateway arbeitet mit Rundrufen. Beides ueberlebt eine
+# Adressumsetzung nicht - in einem eigenen Containernetz findet die Steuerung
+# das Gateway nicht und bekommt keine Telegramme zurueck.
+
+services:
+  regowintergarden:
+    build: .
+    image: regowintergarden:neuest
+    container_name: regowintergarden
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./daten:/daten
+    environment:
+      - TZ=Europe/Berlin
+    command: ["--port", "8080"]
+
+# Ohne host-Netz - nur sinnvoll, wenn das Gateway fest eingetragen ist und
+# der Tunnel durch die Adressumsetzung kommt:
+#
+#   ports:
+#     - "8080:8080"

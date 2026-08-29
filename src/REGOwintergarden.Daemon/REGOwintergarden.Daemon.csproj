@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>REGOwintergarden.Daemon</RootNamespace>
+    <AssemblyName>regowintergarden</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Der Name ist klein geschrieben, weil er auf einem Linux-System als
+         Befehl getippt wird - und dort ist Grossschreibung eine Falle. -->
+
+    <VersionPrefix>1.0</VersionPrefix>
+    <BuildStamp Condition="'$(BuildStamp)' == ''">$([System.DateTime]::Now.ToString("ddMMyy"))</BuildStamp>
+    <Version>1.0.0</Version>
+    <InformationalVersion>$(VersionPrefix).$(BuildStamp)</InformationalVersion>
+    <Company>Stephan Ruf</Company>
+    <Authors>Stephan Ruf</Authors>
+    <Product>REGOwintergarden</Product>
+    <Copyright>Copyright 2026 Stephan Ruf</Copyright>
+    <Description>Wintergartensteuerung ueber KNX - Dienst mit Weboberflaeche.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\REGOwintergarden.Core\REGOwintergarden.Core.csproj" />
+  </ItemGroup>
+
+</Project>

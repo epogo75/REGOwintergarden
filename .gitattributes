@@ -1,0 +1,6 @@
+# Shell-Skripte und Dockerfiles brauchen Unix-Zeilenenden - mit CRLF startet
+# /bin/sh nicht und meldet einen Fehler, der wie ein Tippfehler aussieht.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.service text eol=lf
+*.yml text eol=lf

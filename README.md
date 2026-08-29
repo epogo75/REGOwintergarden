@@ -357,27 +357,120 @@ Eine Datei, lesbar, im Benutzerprofil:
 einem anderen Konto läuft. Geschrieben wird erst daneben und dann getauscht:
 ein Stromausfall mitten im Speichern soll nicht die Anlage kosten.
 
+## Auf dem Raspberry Pi
+
+Der Wintergarten braucht keinen Windows-Rechner, der durchläuft. Dieselbe
+Steuerung gibt es als **Linux-Dienst mit Weboberfläche** — für den Pi, für ein
+NAS, für jede virtuelle Maschine.
+
+### In einem Zug einrichten
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/epogo75/REGOwintergarden/main/linux/install.sh | sudo sh
+```
+
+Das Skript erkennt die Architektur (arm64, armhf, x86-64), legt das Programm
+nach `/opt/regowintergarden`, richtet einen eigenen Benutzer ohne Anmeldung
+ein, legt die Einstellungen unter `/etc/regowintergarden` an und startet den
+systemd-Dienst. Danach steht die Oberfläche unter `http://<pi>:8080`.
+
+```sh
+journalctl -u regowintergarden -f      # zusehen
+systemctl restart regowintergarden     # nach Änderungen an der Einstellung
+/opt/regowintergarden/uninstall.sh     # wieder entfernen
+```
+
+Das Entfernen lässt die Einstellungen stehen. Ein Skript, das beim
+Deinstallieren ungefragt die Anlagendaten mitnimmt, hat schon manchen Abend
+gekostet.
+
+### Mit Docker
+
+```sh
+git clone https://github.com/epogo75/REGOwintergarden
+cd REGOwintergarden
+docker compose up -d
+```
+
+**Netzwerkmodus `host`, und das mit Absicht:** der KNX-Tunnel spricht UDP, und
+die Gatewaysuche arbeitet mit Rundrufen. Beides überlebt eine Adressumsetzung
+nicht — in einem eigenen Containernetz findet die Steuerung das Gateway nicht
+und bekommt keine Telegramme zurück.
+
+Die Einstellungen liegen im Datenträger `./daten`, damit sie eine
+Aktualisierung des Bildes überleben. `/gesundheit` beantwortet die Frage, ob
+die Automatik noch rechnet — als `HEALTHCHECK` eingetragen.
+
+### Die Weboberfläche
+
+Dieselben Angaben wie im Windows-Fenster: Statusband mit Erklärung, die
+Wetterleuchten, der Sonnenkompass als SVG, „Als Nächstes", und je Antrieb eine
+Kachel mit Grund und den drei Knöpfen.
+
+Kein Skript, kein Rahmenwerk, kein CDN: die Seite lädt auch dann, wenn der
+Wintergarten kein Internet hat, und sie funktioniert in jedem alten
+Tabletbrowser. Sie lädt sich alle dreißig Sekunden selbst neu; `/lage.json`
+liefert denselben Stand als JSON, wenn eine Visualisierung ihn abholen will.
+
+**Zugriff hat jeder im Netz.** Das ist eine Entscheidung und keine
+Nachlässigkeit: eine Wintergartensteuerung im Heimnetz hinter eine Anmeldung zu
+sperren führt dazu, dass das Kennwort auf einem Zettel am Tablet klebt. Wer sie
+von außen erreichbar macht, gehört hinter einen Reverse Proxy mit Anmeldung.
+
+### Dieselben Einstellungen
+
+`einstellungen.json` hat auf beiden Systemen dasselbe Format. Eine unter
+Windows eingerichtete Anlage lässt sich einfach herüberkopieren:
+
+```sh
+scp "%LOCALAPPDATA%\REGOwintergarden\einstellungen.json" pi@wintergarten:/tmp/
+ssh pi@wintergarten 'sudo mv /tmp/einstellungen.json /etc/regowintergarden/ && sudo systemctl restart regowintergarden'
+```
+
+Eingerichtet wird also bequem am Windows-Rechner, gelaufen wird auf dem Pi.
+
 ## Bauen
 
 Gebraucht wird das **.NET SDK 8**. Kein NuGet-Paket.
 
 ```powershell
-.\test.ps1        # alle Pruefungen
-.\publish.ps1     # eine einzelne .exe nach dist\
-.\make-icon.ps1   # das Symbol neu zeichnen
+.\test.ps1           # alle Pruefungen
+.\publish.ps1        # eine einzelne .exe nach dist\  (Windows)
+.\publish-linux.ps1  # eine Datei je Architektur     (Linux, Pi)
+.\make-icon.ps1      # das Symbol neu zeichnen
 ```
+
+`publish-linux.ps1` baut für `linux-arm64` (Pi 3/4/5 mit 64-Bit-System),
+`linux-arm` (32-Bit, Pi Zero 2) und `linux-x64` — je eine einzelne Datei von
+rund dreißig Megabyte, die ohne installiertes .NET läuft. Das ist der Grund für
+die Größe: auf einem frisch aufgesetzten Pi soll niemand erst ein SDK
+einrichten müssen.
 
 ## Aufbau
 
 ```
-src\REGOwintergarden\
+src\REGOwintergarden.Core\      net8.0 - laeuft ueberall
   Knx\        KNXnet/IP - Tunnel, Rahmen, Datenpunkttypen  (aus REGOsimulator)
   Model\      Antriebe, Wetter, Sonnenstand, Regeln, Zeiten - reine Logik
-  App\        Bus, Vorhersage, Einstellungen, Ablauf
+  App\        Bus, Vorhersage, Einstellungen, Aufzeichnung, Ablauf
+  Web\        die Bedienseite als HTML
+
+src\REGOwintergarden\           net8.0-windows - die WPF-Oberflaeche
   Service\    Windows-Dienst: Geruest ueber advapi32
   Ui\         Fenster, Kompass, Sinnbilder, Verlaufsgrafik
+
+src\REGOwintergarden.Daemon\    net8.0 - der Linux-Dienst
+  Webserver, Start, Schleife
+
+linux\        install.sh, uninstall.sh
 tests\REGOwintergarden.Tests\
 ```
+
+Die Aufteilung ist der Grund, warum es beides gibt: der **Kern** kennt keine
+Fenster. Regeln, Sonnenstand, KNX-Tunnel und Aufzeichnung haben mit einer
+Oberflaeche nichts zu tun, und ein Wintergarten wartet nicht darauf, dass ein
+Windows-Rechner läuft. Die WPF-Oberfläche und der Linux-Dienst sind zwei
+Anzeigen desselben Kerns — was in einer geprüft ist, gilt in der anderen.
 
 `Model\` weiß nichts vom Netz: hinein gehen Anlage, Wetter, Sonnenstand und ein
 Zeitpunkt, heraus kommt je Antrieb eine Lage mit Ziel und Grund. Deshalb lässt

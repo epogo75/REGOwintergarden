@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\REGOwintergarden\REGOwintergarden.csproj" />
+    <ProjectReference Include="..\..\src\REGOwintergarden.Core\REGOwintergarden.Core.csproj" />
   </ItemGroup>
 
 </Project>

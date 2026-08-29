@@ -53,6 +53,10 @@
        aber aus eigenstaendigen Programmen abhaengige machen. -->
 
   <ItemGroup>
+    <ProjectReference Include="..\REGOwintergarden.Core\REGOwintergarden.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="REGOwintergarden.Tests" />
   </ItemGroup>
 
