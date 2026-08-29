@@ -48,7 +48,7 @@ public static class Webseite
     {
         html.Append("<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">");
         html.Append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
-        html.Append("<title>REGOwintergarden &middot; ").Append(Sicher(anlage.Name)).Append("</title>");
+        html.Append("<title>REGOwintergarden</title>");
 
         // Das Symbol im Reiter: dieselbe gelbe Sonne wie auf der EXE, nur als
         // SVG statt als .ico. Eingebettet und nicht nachgeladen - sonst
@@ -66,10 +66,12 @@ public static class Webseite
         }
         html.Append("<style>").Append(Stil).Append("</style></head><body>");
 
+        // Nur der Programmname. Wie die Anlage heisst, steht im Statusband und
+        // auf der Konfigurationsseite - zweimal dasselbe in zwei Zeilen
+        // uebereinander sagt beim zweiten Mal nichts mehr.
         html.Append("<div class=\"kopfzeile\">");
         Bild(html, Sinnbilder.Sonne, 22);
-        html.Append("<span class=\"marke\">REGOwintergarden</span>");
-        html.Append("<span class=\"klein\">").Append(Sicher(anlage.Name)).Append("</span></div>");
+        html.Append("<span class=\"marke\">REGOwintergarden</span></div>");
 
         html.Append("<nav class=\"menue\">");
         foreach (var (ziel, name) in Seiten)
