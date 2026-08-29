@@ -160,7 +160,46 @@ Tagsüber bringt Lüften wenig; draußen ist es dann wärmer.
 Eine ausgefahrene Markise im Sturm ist ein Schaden, eine unbeschattete Scheibe
 ist keiner. Deshalb steht Wind ganz oben — auch über dem Handgriff.
 
-### Wind und Regen — die Wetterstation ist der Wächter
+### Wind und Regen — die Sicherheitskette
+
+**Dieses Programm ist der Chef für Wind und Regen.** Es hört die Wetterstation
+ab, bildet daraus ein Urteil und meldet es **zyklisch** an die Aktoren — auf
+eigenen Adressen, nicht auf denen der Station.
+
+```
+Wetterstation  ──zyklisch──▶  REGOwintergarden  ──zyklisch──▶  Aktoren
+   Windalarm (Bit)               bewertet,                  eigene
+   Regen (Bit)                   erkennt Ausfall,           zyklische
+   Wind (m/s)                    entscheidet                Überwachung
+```
+
+Jede Stufe überwacht die vorige, und das ergibt eine lückenlose Kette:
+
+- **Fällt die Wetterstation aus**, bleiben ihre zyklischen Telegramme aus. Das
+  merkt dieses Programm — und meldet Alarm, statt weiter Entwarnung zu geben.
+- **Fällt dieses Programm aus** (Rechner aus, Netz weg, Dienst gestorben),
+  bleibt *seine* Wiederholung aus. Das merken die Aktoren über ihre eigene
+  zyklische Überwachung und fahren von selbst in Sicherheit.
+
+Deshalb wird **zyklisch** gesendet und nicht nur bei Änderung: ein Signal, das
+nur bei Änderung kommt, ist kein Lebenszeichen. Ein stillstehendes Programm
+sähe für die Aktoren aus wie schönes Wetter.
+
+Die Wiederholung gehört deutlich kürzer eingestellt als die Überwachungszeit in
+den Aktoren — ein Drittel bis ein Viertel ist die Faustregel: bei 60 Sekunden
+Wiederholung also drei bis vier Minuten Überwachung. Sonst löst deren
+Überwachung aus, obwohl alles läuft.
+
+Das Signal geht auch hinaus, wenn die **Automatik abgeschaltet** ist. Wer den
+Komfort abschaltet, schaltet nicht den Windschutz ab.
+
+**Alarm gilt**, wenn eines davon zutrifft: die Station meldet Alarm; die
+Geschwindigkeit liegt über der Anlagengrenze; die Vorhersage kündigt Böen an;
+oder von der Station kommt nichts Frisches mehr. Die Anlagengrenze ist getrennt
+von den Grenzen der einzelnen Antriebe — die gelten für das, was dieses
+Programm selbst fährt, die Anlagengrenze ist die Notbremse für alles.
+
+### Was die Station liefert
 
 **Windalarm und Regen kommen als fertige Bits von der Wetterstation.** Dort
 läuft die eigentliche Überwachung: Böenerkennung, Grenze, Nachlauf, beim Regen

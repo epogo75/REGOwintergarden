@@ -41,6 +41,7 @@ public sealed class Uebersicht : UserControl
     private readonly Symbole.Leuchte _aussen = new(Symbole.Thermometer, "draussen");
     private readonly Symbole.Leuchte _innen = new(Symbole.Haus, "drinnen");
     private readonly Symbole.Leuchte _hell = new(Symbole.Sonne, "Helligkeit");
+    private readonly Symbole.Leuchte _ausgabe = new(Symbole.Warnung, "an die Aktoren");
 
     private bool _fuellt;
 
@@ -123,6 +124,7 @@ public sealed class Uebersicht : UserControl
         _leuchten.Children.Add(_aussen);
         _leuchten.Children.Add(_innen);
         _leuchten.Children.Add(_hell);
+        _leuchten.Children.Add(_ausgabe);
 
         // Sonne und Antriebe nebeneinander: der Kompass erklaert die Kacheln,
         // und die Kacheln erklaeren den Kompass.
@@ -362,6 +364,32 @@ public sealed class Uebersicht : UserControl
 
         Temperatur(_aussen, wetter.Aussen, anlage, jetzt, frost: true);
         Temperatur(_innen, wetter.Innen, anlage, jetzt, frost: false);
+
+        // Was dieses Programm selbst an die Aktoren meldet. Es steht neben
+        // den Messwerten und nicht in der Konfiguration: es ist der Wert, an
+        // dem die ganze Anlage haengt, und man soll ihn sehen, ohne danach zu
+        // suchen.
+        var sicherheit = _dienst.Sicherheitslage;
+        var alter = _dienst.LetzteAusgabe == DateTime.MinValue
+            ? "noch nichts gesendet"
+            : "zuletzt " + _dienst.LetzteAusgabe.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        var ziel = anlage.AdresseWindausgabe.Trim().Length > 0 || anlage.AdresseRegenausgabe.Trim().Length > 0;
+        if (!ziel)
+        {
+            _ausgabe.Zeigen("nicht eingerichtet", false, bekannt: false);
+        }
+        else
+        {
+            _ausgabe.Zeigen(
+                sicherheit.Wind && sicherheit.Regen ? "Wind + Regen"
+                : sicherheit.Wind ? "Windalarm"
+                : sicherheit.Regen ? "Regen"
+                : "ruhig",
+                sicherheit.Alarm);
+            _ausgabe.ToolTip = sicherheit.Grund + "\n" + alter
+                               + "\nWiederholung alle "
+                               + Zahl(anlage.AusgabetaktSekunden) + " s";
+        }
 
         var hell = wetter.HellsteRichtung();
         if (hell is { } wert && wert.IstFrisch(jetzt, anlage.HoechstalterHelligkeit))

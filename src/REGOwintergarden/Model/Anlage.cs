@@ -193,6 +193,54 @@ public sealed class Anlage
     [JsonPropertyName("adresse_hell_west")]
     public string AdresseHellWest { get; set; } = "";
 
+    // ---- Ausgabe an die Aktoren -------------------------------------------
+
+    /// <summary>
+    /// Die Adresse, auf der dieses Programm den Windalarm an die Aktoren
+    /// meldet - zyklisch.
+    ///
+    /// Nicht dieselbe wie die der Wetterstation. Die Aktoren hoeren auf
+    /// dieses Programm, und dieses Programm hoert auf die Station: so
+    /// ueberwacht jede Stufe die vorige. Faellt dieses Programm aus, bleibt
+    /// die Wiederholung aus, und die Aktoren fahren von selbst in Sicherheit.
+    /// </summary>
+    [JsonPropertyName("adresse_windausgabe")]
+    public string AdresseWindausgabe { get; set; } = "";
+
+    /// <summary>Dasselbe fuer den Regen.</summary>
+    [JsonPropertyName("adresse_regenausgabe")]
+    public string AdresseRegenausgabe { get; set; } = "";
+
+    /// <summary>
+    /// Wie oft wiederholt wird, in Sekunden.
+    ///
+    /// Deutlich kuerzer als die Ueberwachungszeit in den Aktoren - sonst
+    /// loest deren Ueberwachung aus, obwohl alles laeuft. Ein Drittel bis ein
+    /// Viertel ist die uebliche Faustregel.
+    /// </summary>
+    [JsonPropertyName("ausgabetakt_s")]
+    public double AusgabetaktSekunden { get; set; } = 60;
+
+    /// <summary>
+    /// Ob die Ausgabe verkehrt herum gemeint ist.
+    ///
+    /// Vorgabe: eins heisst Alarm. Manche Aktoren erwarten es umgekehrt - dann
+    /// hier umschalten, statt in der ETS eine Umkehrung dazwischenzubauen.
+    /// </summary>
+    [JsonPropertyName("ausgabe_invertiert")]
+    public bool AusgabeInvertiert { get; set; }
+
+    /// <summary>
+    /// Ab dieser Windgeschwindigkeit meldet die Anlage Alarm an die Aktoren.
+    ///
+    /// Getrennt von den Grenzen der einzelnen Antriebe: die gelten fuer das,
+    /// was dieses Programm selbst faehrt. Das Signal an die Aktoren ist die
+    /// Notbremse fuer die ganze Anlage und darf nicht bei jeder empfindlichen
+    /// Markise ausloesen.
+    /// </summary>
+    [JsonPropertyName("windgrenze_ausgabe")]
+    public double WindgrenzeAusgabe { get; set; } = 10;
+
     [JsonPropertyName("adresse_azimut")]
     public string AdresseAzimut { get; set; } = "";
 

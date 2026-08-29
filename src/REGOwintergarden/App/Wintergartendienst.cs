@@ -57,6 +57,8 @@ public sealed class Wintergartendienst : IAsyncDisposable
     private readonly Zeitschaltuhr _uhr = new();
     private readonly Wetterabruf _wetterabruf = new();
     private readonly Dictionary<string, Stufe> _letzteStufe = new(StringComparer.Ordinal);
+    private readonly Zyklusgeber _windausgabe = new(TimeSpan.FromSeconds(60));
+    private readonly Zyklusgeber _regenausgabe = new(TimeSpan.FromSeconds(60));
     private readonly string _ordner;
 
     private KnxTunnelClient? _client;
@@ -77,6 +79,13 @@ public sealed class Wintergartendienst : IAsyncDisposable
 
     /// <summary>Die Aufzeichnung fuer den Langzeittrend.</summary>
     public Aufzeichnung Verlauf { get; }
+
+    /// <summary>Das zuletzt gebildete Urteil ueber Wind und Regen.</summary>
+    public Sicherheitslage Sicherheitslage { get; private set; } =
+        new(false, false, "noch nicht bewertet", false);
+
+    /// <summary>Wann zuletzt an die Aktoren gemeldet wurde.</summary>
+    public DateTime LetzteAusgabe { get; private set; } = DateTime.MinValue;
 
     public Anlage Anlage => Einstellungen.Anlage;
 
@@ -427,6 +436,13 @@ public sealed class Wintergartendienst : IAsyncDisposable
         }
 
         var wetter = Wetter();
+
+        // Zuerst das Sicherheitssignal: es geht auch dann hinaus, wenn die
+        // Automatik abgeschaltet ist. Wer den Komfort abschaltet, schaltet
+        // nicht den Windschutz ab - und die Aktoren warten auf ihr
+        // Lebenszeichen.
+        await SicherheitAusgebenAsync(anlage, wetter, jetzt).ConfigureAwait(false);
+
         var lagen = _automatik.Bewerten(anlage, wetter, Sonne, jetzt);
         Lagen = lagen;
 
@@ -463,6 +479,51 @@ public sealed class Wintergartendienst : IAsyncDisposable
         }
 
         Aufgefrischt?.Invoke();
+    }
+
+    /// <summary>
+    /// Bildet das Urteil ueber Wind und Regen und meldet es zyklisch an die
+    /// Aktoren.
+    ///
+    /// Zyklisch und nicht nur bei Aenderung: die Aktoren erkennen den Ausfall
+    /// dieses Programms daran, dass die Wiederholung ausbleibt. Ein Signal,
+    /// das nur bei Aenderung kommt, ist kein Lebenszeichen - und ein
+    /// stillstehendes Programm saehe fuer sie aus wie schoenes Wetter.
+    /// </summary>
+    private async Task SicherheitAusgebenAsync(Anlage anlage, Wetterlage wetter, DateTime jetzt)
+    {
+        var lage = Sicherheit.Bewerten(anlage, wetter, jetzt);
+        var vorher = Sicherheitslage;
+        Sicherheitslage = lage;
+
+        if (lage.Wind != vorher.Wind || lage.Regen != vorher.Regen)
+        {
+            Melden("Sicherheitslage", lage.ToString(), lage.Alarm);
+        }
+
+        var takt = TimeSpan.FromSeconds(Math.Clamp(anlage.AusgabetaktSekunden, 5, 3600));
+        _windausgabe.Takt = takt;
+        _regenausgabe.Takt = takt;
+
+        var gesendet = false;
+        if (_windausgabe.Faellig(lage.Wind, jetzt))
+        {
+            gesendet |= await BitAsync(anlage.AdresseWindausgabe, lage.Wind, anlage.AusgabeInvertiert)
+                .ConfigureAwait(false);
+        }
+        if (_regenausgabe.Faellig(lage.Regen, jetzt))
+        {
+            gesendet |= await BitAsync(anlage.AdresseRegenausgabe, lage.Regen, anlage.AusgabeInvertiert)
+                .ConfigureAwait(false);
+        }
+        if (gesendet) LetzteAusgabe = jetzt;
+    }
+
+    /// <summary>Ein Bit auf eine Adresse - mit der eingestellten Polaritaet.</summary>
+    private async Task<bool> BitAsync(string adresse, bool wert, bool invertiert)
+    {
+        if (adresse.Trim().Length == 0) return false;
+        return await SendenAsync(adresse, "1.001", (wert != invertiert) ? "ein" : "aus").ConfigureAwait(false);
     }
 
     private async Task AusfuehrenAsync(Lage lage, DateTime jetzt)

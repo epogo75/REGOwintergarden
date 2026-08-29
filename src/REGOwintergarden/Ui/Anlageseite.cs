@@ -34,6 +34,11 @@ public sealed class Anlageseite : UserControl
     private readonly TextBox _adrOst = new();
     private readonly TextBox _adrSued = new();
     private readonly TextBox _adrWest = new();
+    private readonly TextBox _adrWindaus = new();
+    private readonly TextBox _adrRegenaus = new();
+    private readonly TextBox _ausgabetakt = new();
+    private readonly TextBox _windgrenzeAus = new();
+    private readonly CheckBox _invertiert = new() { Content = "Ausgabe invertiert (0 heisst Alarm)" };
     private readonly TextBox _adrAzimut = new();
     private readonly TextBox _adrElevation = new();
 
@@ -120,6 +125,31 @@ public sealed class Anlageseite : UserControl
         spalte.Children.Add(Bausteine.Zeile("Elevation", Adressfeld(_adrElevation, "14.007")));
         spalte.Children.Add(Bausteine.Hinweis(
             "Azimut und Elevation sind freiwillig - ohne sie rechnet das Programm sie selbst."));
+
+        // ---- Ausgabe an die Aktoren ----
+        spalte.Children.Add(Bausteine.Ueberschrift("Sicherheitssignal an die Aktoren"));
+        spalte.Children.Add(Bausteine.Hinweis(
+            "Dieses Programm ist der Chef fuer Wind und Regen: es hoert die Wetterstation ab, bildet "
+            + "daraus ein Urteil und meldet es zyklisch an die Aktoren - auf eigenen Adressen, nicht "
+            + "auf denen der Station.\n\n"
+            + "So ueberwacht jede Stufe die vorige. Faellt die Station aus, merkt es dieses Programm "
+            + "und meldet Alarm. Faellt dieses Programm aus, bleibt die Wiederholung aus, und die "
+            + "Aktoren fahren von selbst in Sicherheit - dafuer in den Aktoren die zyklische "
+            + "Ueberwachung einschalten.", eingerueckt: false));
+        spalte.Children.Add(Bausteine.Zeile("Wind an Aktoren", Adressfeld(_adrWindaus, "1.001")));
+        spalte.Children.Add(Bausteine.Zeile("Regen an Aktoren", Adressfeld(_adrRegenaus, "1.001")));
+        spalte.Children.Add(Bausteine.Zeile("Wiederholung", Bausteine.Feld(_ausgabetakt, 120)));
+        spalte.Children.Add(Bausteine.Hinweis(
+            "In Sekunden. Deutlich kuerzer als die Ueberwachungszeit in den Aktoren - sonst loest "
+            + "deren Ueberwachung aus, obwohl alles laeuft. Ein Drittel bis ein Viertel ist die "
+            + "uebliche Faustregel: bei 60 Sekunden Wiederholung also drei bis vier Minuten "
+            + "Ueberwachung."));
+        spalte.Children.Add(Bausteine.Zeile("Alarm ab", Bausteine.Feld(_windgrenzeAus, 120)));
+        spalte.Children.Add(Bausteine.Hinweis(
+            "In m/s. Die Notbremse fuer die ganze Anlage - getrennt von den Grenzen der einzelnen "
+            + "Antriebe, damit sie nicht bei jeder empfindlichen Markise ausloest."));
+        _invertiert.Margin = new Thickness(Bausteine.Beschriftungsbreite, 0, 0, 8);
+        spalte.Children.Add(_invertiert);
 
         // ---- Schalter ----
         spalte.Children.Add(Bausteine.Ueberschrift("Was laufen soll"));
@@ -236,6 +266,11 @@ public sealed class Anlageseite : UserControl
             _adrOst.Text = anlage.AdresseHellOst;
             _adrSued.Text = anlage.AdresseHellSued;
             _adrWest.Text = anlage.AdresseHellWest;
+            _adrWindaus.Text = anlage.AdresseWindausgabe;
+            _adrRegenaus.Text = anlage.AdresseRegenausgabe;
+            _ausgabetakt.Text = Bausteine.Zahl(anlage.AusgabetaktSekunden);
+            _windgrenzeAus.Text = Bausteine.Zahl(anlage.WindgrenzeAusgabe);
+            _invertiert.IsChecked = anlage.AusgabeInvertiert;
             _adrAzimut.Text = anlage.AdresseAzimut;
             _adrElevation.Text = anlage.AdresseElevation;
 
@@ -308,6 +343,11 @@ public sealed class Anlageseite : UserControl
         anlage.AdresseHellOst = _adrOst.Text.Trim();
         anlage.AdresseHellSued = _adrSued.Text.Trim();
         anlage.AdresseHellWest = _adrWest.Text.Trim();
+        anlage.AdresseWindausgabe = _adrWindaus.Text.Trim();
+        anlage.AdresseRegenausgabe = _adrRegenaus.Text.Trim();
+        Bausteine.Setze(_ausgabetakt, wert => anlage.AusgabetaktSekunden = Math.Clamp(wert, 5, 3600));
+        Bausteine.Setze(_windgrenzeAus, wert => anlage.WindgrenzeAusgabe = Math.Clamp(wert, 0, 50));
+        anlage.AusgabeInvertiert = _invertiert.IsChecked == true;
         anlage.AdresseAzimut = _adrAzimut.Text.Trim();
         anlage.AdresseElevation = _adrElevation.Text.Trim();
 

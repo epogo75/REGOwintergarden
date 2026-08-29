@@ -92,6 +92,7 @@ public static class Program
         Vorhersage();
         Werte();
         Klugheit();
+        Sicherheitskette();
         Verlauf();
         Oberflaeche();
         Symbol();
@@ -682,6 +683,70 @@ public static class Program
         var nass = automatik8.Bewerten(fensteranlage, Lage(nacht, innen: 27, aussen: 18, regen: true),
             dunkel, nacht)[0];
         Check.Gleich(Stufe.Regen, nass.Stufe, "bei Regen bleibt das Fenster zu");
+    }
+
+    // ===================================================================
+    // Sicherheitssignal an die Aktoren
+    // ===================================================================
+
+    private static void Sicherheitskette()
+    {
+        Check.Abschnitt("Sicherheitskette");
+
+        var anlage = new Anlage { WindgrenzeAusgabe = 10 };
+        var jetzt = new DateTime(2026, 7, 1, 12, 0, 0);
+
+        // Ruhiges Wetter: Entwarnung geht hinaus.
+        var ruhig = Sicherheit.Bewerten(anlage, Lage(jetzt, wind: 3), jetzt);
+        Check.Das(!ruhig.Wind, "bei drei m/s kein Windalarm");
+        Check.Das(!ruhig.Regen, "und kein Regen");
+        Check.Das(!ruhig.Stationsausfall, "die Station meldet sich");
+
+        // Das Alarmbit der Station schlaegt durch.
+        var gemeldet = Sicherheit.Bewerten(anlage, Lage(jetzt, wind: 3, windalarm: true), jetzt);
+        Check.Das(gemeldet.Wind, "das Alarmbit der Station wird weitergereicht");
+        Check.Das(gemeldet.Grund.Contains("Wetterstation"), "und der Grund nennt sie");
+
+        // Die eigene Anlagengrenze auch.
+        var schnell = Sicherheit.Bewerten(anlage, Lage(jetzt, wind: 14), jetzt);
+        Check.Das(schnell.Wind, "vierzehn m/s ueberschreiten die Anlagengrenze");
+        Check.Das(schnell.Grund.Contains("Anlagengrenze"), "und das steht im Grund");
+
+        // Der Fall, um den es geht: die Station schweigt.
+        var stumm = new Wetterlage
+        {
+            Windalarm = new Messwert(0, jetzt.AddHours(-1)),
+            Wind = new Messwert(2, jetzt.AddHours(-1)),
+            Regen = new Messwert(0, jetzt.AddHours(-1)),
+        };
+        var ausfall = Sicherheit.Bewerten(anlage, stumm, jetzt);
+        Check.Das(ausfall.Wind, "eine schweigende Station ergibt Windalarm");
+        Check.Das(ausfall.Regen, "und Regenalarm");
+        Check.Das(ausfall.Stationsausfall, "der Ausfall wird als solcher erkannt");
+        Check.Das(ausfall.Grund.Contains("nichts mehr"), "und benannt");
+
+        // Gar keine Adressen eingetragen: dasselbe, aber mit anderem Grund.
+        var leer = Sicherheit.Bewerten(anlage, new Wetterlage(), jetzt);
+        Check.Das(leer.Wind && leer.Regen, "ohne jede Meldung gilt Alarm");
+        Check.Das(leer.Grund.Contains("eingetragen"), "und der Grund sagt, dass nichts eingetragen ist");
+
+        // Regen allein.
+        var nass = Sicherheit.Bewerten(anlage, Lage(jetzt, wind: 2, regen: true), jetzt);
+        Check.Das(!nass.Wind, "Regen ist kein Wind");
+        Check.Das(nass.Regen, "aber Regen");
+
+        // Der Zyklusgeber: bei Aenderung sofort, sonst nach Ablauf des Takts.
+        var geber = new Zyklusgeber(TimeSpan.FromSeconds(60));
+        Check.Das(geber.Faellig(false, jetzt), "der erste Wert geht immer hinaus");
+        Check.Das(!geber.Faellig(false, jetzt.AddSeconds(10)), "derselbe Wert nicht gleich noch einmal");
+        Check.Das(geber.Faellig(true, jetzt.AddSeconds(11)), "eine Aenderung aber sofort");
+        Check.Das(!geber.Faellig(true, jetzt.AddSeconds(30)), "danach wieder Ruhe");
+
+        // Und das Lebenszeichen: nach dem Takt geht derselbe Wert erneut
+        // hinaus. Genau daran erkennen die Aktoren, dass dieses Programm noch
+        // laeuft.
+        Check.Das(geber.Faellig(true, jetzt.AddSeconds(75)), "nach dem Takt wird wiederholt");
+        Check.Gleich(true, geber.Wert, "und der gesendete Wert ist gemerkt");
     }
 
     // ===================================================================
