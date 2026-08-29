@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using REGOwintergarden.App;
@@ -35,6 +37,11 @@ public static class Programm
             port = gelesen;
         }
 
+        // Vor allem anderen, denn hier soll nichts geladen und nichts
+        // verbunden werden: das ist die Frage von Docker an einen schon
+        // laufenden Dienst.
+        if (Hat(args, "--gesundheit")) return await GesundheitAsync(port).ConfigureAwait(false);
+
         var einstellungen = Einstellungen.Laden(ordner);
         var dienst = new Wintergartendienst(einstellungen, ordner);
 
@@ -44,6 +51,19 @@ public static class Programm
         dienst.Protokolliert += zeile => Console.WriteLine(zeile.ToString());
 
         dienst.Melden("Start", "REGOwintergarden " + Programmstand.Version + ", Ordner " + ordner);
+
+        // Ein nicht beschreibbarer Ordner ist der haeufigste Stolperstein in
+        // Docker: der Datentraeger vom Wirt gehoert dort einem anderen
+        // Benutzer, und der Container darf nicht hinein. Gemeldet wird es
+        // deutlich - abgebrochen wird deswegen nicht. Ein Wintergarten, der
+        // die Markise stehen laesst, weil er sein Protokoll nicht schreiben
+        // kann, waere die schlechtere Wahl.
+        if (!Beschreibbar(ordner))
+        {
+            dienst.Melden("Ordner nicht beschreibbar",
+                ordner + " - Einstellungen und Verlauf bleiben ungesichert. "
+                + "Bei Docker auf dem Wirt einmal: sudo chown -R 1000:1000 daten", true);
+        }
 
         if (Hat(args, "--pruefen"))
         {
@@ -100,9 +120,54 @@ public static class Programm
         + "  regowintergarden                 startet Steuerung und Weboberflaeche\n"
         + "  regowintergarden --port 8080     andere Portnummer\n"
         + "  regowintergarden --home <Ordner> anderer Einstellungsordner\n"
-        + "  regowintergarden --pruefen       liest die Einstellungen und beendet sich\n\n"
+        + "  regowintergarden --pruefen       liest die Einstellungen und beendet sich\n"
+        + "  regowintergarden --gesundheit    fragt einen laufenden Dienst, 0 wenn er lebt\n\n"
         + "Der Ordner laesst sich auch ueber REGOWINTERGARDEN_HOME vorgeben.\n"
         + "Eingerichtet wird in einstellungen.json - dieselbe Datei wie unter Windows.";
+
+    /// <summary>
+    /// Fragt den laufenden Dienst und meldet über den Rückgabewert, ob er
+    /// lebt. Genau das will Docker wissen - und zwar vom laufenden Dienst und
+    /// nicht von den Einstellungen auf der Platte.
+    ///
+    /// <b>Warum nicht curl:</b> in den Laufzeitbildern gibt es keines. Eines
+    /// dazuzunehmen hieße, sich für eine einzige Zeile eine Paketquelle samt
+    /// Aktualisierungen ans Bein zu binden - das Programm kann selbst fragen.
+    /// </summary>
+    private static async Task<int> GesundheitAsync(int port)
+    {
+        var adresse = "http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/gesundheit";
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
+            var antwort = await http.GetAsync(adresse).ConfigureAwait(false);
+            var text = (await antwort.Content.ReadAsStringAsync().ConfigureAwait(false)).Trim();
+            Console.WriteLine(((int)antwort.StatusCode).ToString(CultureInfo.InvariantCulture) + " " + text);
+            return antwort.IsSuccessStatusCode ? 0 : 1;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            Console.WriteLine("keine Antwort von " + adresse + ": " + ex.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>Lässt sich in den Ordner schreiben? Gefragt wird, indem man es tut.</summary>
+    private static bool Beschreibbar(string ordner)
+    {
+        try
+        {
+            Directory.CreateDirectory(ordner);
+            var probe = Path.Combine(ordner, ".schreibprobe");
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     private static bool Hat(string[] args, string name)
     {
