@@ -19,6 +19,13 @@ set -eu
 
 REPO="epogo75/REGOwintergarden"
 ZWEIG="${REGOWG_ZWEIG:-main}"
+# Das Programm kann auch schon dasein - dann wird nichts geladen. Der Weg
+# fuer ein privates Verzeichnis und fuer einen Pi ohne Internet:
+#   scp dist/linux-arm64/regowintergarden linux/install.sh pi@wintergarten:/tmp/
+#   ssh pi@wintergarten 'sudo REGOWG_DATEI=/tmp/regowintergarden sh /tmp/install.sh'
+DATEI="${REGOWG_DATEI:-}"
+# Fuer ein privates Verzeichnis: ein Lesezeichen ("token") mit Leserecht.
+MARKE="${REGOWG_TOKEN:-}"
 ZIEL="/opt/regowintergarden"
 DATEN="${REGOWG_HOME:-/etc/regowintergarden}"
 DIENST="regowintergarden"
@@ -38,38 +45,69 @@ case "$(uname -m)" in
   x86_64|amd64)   RID="linux-x64" ;;
   *) sterben "Unbekannte Architektur: $(uname -m). Von Hand bauen, siehe README." ;;
 esac
-sagen "Architektur $(uname -m) erkannt, hole $RID"
+sagen "Architektur $(uname -m) erkannt: $RID"
 
-command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 \
-  || sterben "Weder curl noch wget gefunden."
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
 holen() {
   # $1 = Adresse, $2 = Zieldatei
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1" -o "$2"
+    if [ -n "$MARKE" ]; then curl -fsSL -H "Authorization: Bearer $MARKE" "$1" -o "$2"
+    else curl -fsSL "$1" -o "$2"; fi
   else
-    wget -qO "$2" "$1"
+    if [ -n "$MARKE" ]; then wget -q --header="Authorization: Bearer $MARKE" -O "$2" "$1"
+    else wget -qO "$2" "$1"; fi
   fi
 }
 
 # ---- 2. Programm ablegen --------------------------------------------------
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
-
-QUELLE="https://github.com/$REPO/releases/latest/download/regowintergarden-$RID.tar.gz"
-sagen "Lade $QUELLE"
-if ! holen "$QUELLE" "$TMP/programm.tar.gz"; then
-  warnen "Keine Veroeffentlichung gefunden - versuche den Zweig $ZWEIG."
-  QUELLE="https://github.com/$REPO/raw/$ZWEIG/dist/$RID/regowintergarden"
-  holen "$QUELLE" "$TMP/regowintergarden" \
-    || sterben "Programm nicht gefunden. Siehe README, Abschnitt Selbst bauen."
+if [ -n "$DATEI" ]; then
+  # Schon mitgebracht - nichts zu laden.
+  [ -f "$DATEI" ] || sterben "REGOWG_DATEI zeigt auf nichts: $DATEI"
+  cp "$DATEI" "$TMP/regowintergarden"
+  sagen "Nehme das mitgebrachte Programm: $DATEI"
 else
-  tar -xzf "$TMP/programm.tar.gz" -C "$TMP"
+  command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 \
+    || sterben "Weder curl noch wget gefunden."
+
+  QUELLE="https://github.com/$REPO/releases/latest/download/regowintergarden-$RID.tar.gz"
+  sagen "Lade $QUELLE"
+  if holen "$QUELLE" "$TMP/programm.tar.gz"; then
+    tar -xzf "$TMP/programm.tar.gz" -C "$TMP"
+  else
+    # Fast immer derselbe Grund: das Verzeichnis ist privat, und ohne
+    # Lesezeichen sieht curl dort gar nichts - auch keinen Fehler, der das
+    # sagen wuerde. Deshalb steht der Weg hier ausgeschrieben.
+    sterben "Programm nicht geladen.
+
+  Ist das Verzeichnis privat, braucht es ein Lesezeichen:
+      sudo REGOWG_TOKEN=ghp_... sh install.sh
+
+  Oder das Programm gleich mitbringen - das geht immer, auch ohne Internet
+  am Wintergarten:
+      scp dist/$RID/regowintergarden linux/install.sh pi@wintergarten:/tmp/
+      ssh pi@wintergarten 'sudo REGOWG_DATEI=/tmp/regowintergarden sh /tmp/install.sh'
+
+  Selbst bauen steht im README."
+  fi
 fi
 
 mkdir -p "$ZIEL"
 install -m 0755 "$TMP/regowintergarden" "$ZIEL/regowintergarden"
 sagen "Programm liegt in $ZIEL"
+
+# Das Gegenstueck gleich mitlegen. Ein Einrichter, der keinen Weg zurueck
+# hinterlaesst, ist eine halbe Sache - und gesucht wird er genau dann, wenn
+# man am wenigsten Lust hat, ihn erst herunterzuladen.
+NEBENAN="$(dirname -- "$0")/uninstall.sh"
+if [ -f "$NEBENAN" ]; then
+  install -m 0755 "$NEBENAN" "$ZIEL/uninstall.sh"
+elif holen "https://raw.githubusercontent.com/$REPO/$ZWEIG/linux/uninstall.sh" "$TMP/uninstall.sh"; then
+  install -m 0755 "$TMP/uninstall.sh" "$ZIEL/uninstall.sh"
+else
+  warnen "uninstall.sh nicht gefunden - Entfernen steht im README."
+fi
 
 # ---- 3. Benutzer und Einstellungen ---------------------------------------
 # Ein eigener Benutzer ohne Anmeldung: die Steuerung braucht nichts vom

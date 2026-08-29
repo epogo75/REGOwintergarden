@@ -366,13 +366,27 @@ NAS, für jede virtuelle Maschine.
 ### In einem Zug einrichten
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/epogo75/REGOwintergarden/main/linux/install.sh | sudo sh
+scp dist/linux-arm64/regowintergarden linux/install.sh pi@wintergarten:/tmp/
+ssh pi@wintergarten 'sudo REGOWG_DATEI=/tmp/regowintergarden sh /tmp/install.sh'
 ```
 
 Das Skript erkennt die Architektur (arm64, armhf, x86-64), legt das Programm
 nach `/opt/regowintergarden`, richtet einen eigenen Benutzer ohne Anmeldung
 ein, legt die Einstellungen unter `/etc/regowintergarden` an und startet den
 systemd-Dienst. Danach steht die Oberfläche unter `http://<pi>:8080`.
+
+Ohne `REGOWG_DATEI` holt es sich das Programm selbst von der
+Veröffentlichungsseite:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/epogo75/REGOwintergarden/main/linux/install.sh | sudo sh
+```
+
+**Solange das Verzeichnis privat ist, geht das nur mit einem Lesezeichen**
+(`sudo REGOWG_TOKEN=ghp_… sh install.sh`) — ohne eines antwortet GitHub mit
+einem 404 und nicht mit „kein Zugriff", und man sucht den Fehler an der
+falschen Stelle. Der Weg über `scp` oben umgeht das ganz und funktioniert
+auch dann, wenn am Wintergarten kein Internet liegt.
 
 ```sh
 journalctl -u regowintergarden -f      # zusehen
