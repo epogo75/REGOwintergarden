@@ -27,6 +27,7 @@ public sealed class Anlageseite : UserControl
     private readonly TextBlock _sonnenprobe = new() { TextWrapping = TextWrapping.Wrap };
 
     private readonly TextBox _adrRegen = new();
+    private readonly TextBox _adrWindalarm = new();
     private readonly TextBox _adrWind = new();
     private readonly TextBox _adrAussen = new();
     private readonly TextBox _adrInnen = new();
@@ -102,7 +103,14 @@ public sealed class Anlageseite : UserControl
         // ---- Wetterstation ----
         spalte.Children.Add(Bausteine.Ueberschrift("Wetterstation"));
         spalte.Children.Add(Bausteine.Zeile("Regen", Adressfeld(_adrRegen, "1.001")));
-        spalte.Children.Add(Bausteine.Zeile("Wind", Adressfeld(_adrWind, "9.005")));
+        spalte.Children.Add(Bausteine.Zeile("Windalarm", Adressfeld(_adrWindalarm, "1.001")));
+        spalte.Children.Add(Bausteine.Zeile("Wind m/s", Adressfeld(_adrWind, "9.005")));
+        spalte.Children.Add(Bausteine.Hinweis(
+            "Regen und Windalarm kommen als fertige Bits von der Wetterstation - dort laeuft die "
+            + "Ueberwachung mit Boeenerkennung, Grenze und Nachlauf. Dieses Programm wertet das "
+            + "Ergebnis aus, statt daneben einen zweiten Waechter mit anderen Grenzen zu bauen. Die "
+            + "Geschwindigkeit in m/s ist zur Anzeige da und fuer Antriebe, die empfindlicher sein "
+            + "sollen als die eine Grenze in der Station."));
         spalte.Children.Add(Bausteine.Zeile("Aussen", Adressfeld(_adrAussen, "9.001")));
         spalte.Children.Add(Bausteine.Zeile("Innen", Adressfeld(_adrInnen, "9.001")));
         spalte.Children.Add(Bausteine.Zeile("Hell Ost", Adressfeld(_adrOst, "9.004")));
@@ -221,6 +229,7 @@ public sealed class Anlageseite : UserControl
             _laenge.Text = Bausteine.Zahl(anlage.Laenge);
 
             _adrRegen.Text = anlage.AdresseRegen;
+            _adrWindalarm.Text = anlage.AdresseWindalarm;
             _adrWind.Text = anlage.AdresseWind;
             _adrAussen.Text = anlage.AdresseAussen;
             _adrInnen.Text = anlage.AdresseInnen;
@@ -292,6 +301,7 @@ public sealed class Anlageseite : UserControl
         Bausteine.Setze(_laenge, wert => anlage.Laenge = Math.Clamp(wert, -180, 180));
 
         anlage.AdresseRegen = _adrRegen.Text.Trim();
+        anlage.AdresseWindalarm = _adrWindalarm.Text.Trim();
         anlage.AdresseWind = _adrWind.Text.Trim();
         anlage.AdresseAussen = _adrAussen.Text.Trim();
         anlage.AdresseInnen = _adrInnen.Text.Trim();

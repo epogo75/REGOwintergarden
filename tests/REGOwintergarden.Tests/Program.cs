@@ -91,6 +91,7 @@ public static class Program
         Zeiten();
         Vorhersage();
         Werte();
+        Oberflaeche();
         Symbol();
 
         return Check.Bericht();
@@ -204,8 +205,9 @@ public static class Program
     // ===================================================================
 
     private static Wetterlage Lage(DateTime jetzt, double wind = 2, double aussen = 18, double innen = 22,
-        double hell = 60000, bool regen = false) => new()
+        double hell = 60000, bool regen = false, bool windalarm = false) => new()
     {
+        Windalarm = new Messwert(windalarm ? 1 : 0, jetzt),
         Wind = new Messwert(wind, jetzt),
         Aussen = new Messwert(aussen, jetzt),
         Innen = new Messwert(innen, jetzt),
@@ -366,6 +368,36 @@ public static class Program
         var veraltet = automatik3.Bewerten(anlage, alterWind, sonne, jetzt)[0];
         Check.Gleich(Stufe.Wind, veraltet.Stufe, "ein zwei Stunden alter Windwert zaehlt nicht");
         Check.Das(veraltet.Grund.Contains("alt"), "und das steht im Grund");
+
+        // Das Alarmbit der Wetterstation schlaegt die eigene Grenze: dort
+        // laeuft die Ueberwachung mit Boeenerkennung und Nachlauf, und zwei
+        // Waechter mit verschiedenen Grenzen waeren schlimmer als einer.
+        var automatikBit = new Automatik();
+        var gemeldet = automatikBit.Bewerten(anlage, Lage(jetzt, wind: 2, windalarm: true), sonne, jetzt)[0];
+        Check.Gleich(Stufe.Wind, gemeldet.Stufe, "das Alarmbit faehrt ein, auch bei zwei m/s");
+        Check.Das(gemeldet.Grund.Contains("Wetterstation"), "und der Grund nennt die Quelle");
+
+        // Ohne Alarmbit zaehlt die eigene Grenze weiter - fuer Antriebe, die
+        // empfindlicher sein sollen als die Station eingestellt ist.
+        var automatikOhneBit = new Automatik();
+        var nurWert = new Wetterlage
+        {
+            Wind = new Messwert(12, jetzt),
+            HellSued = new Messwert(80000, jetzt),
+        };
+        var eigen = automatikOhneBit.Bewerten(anlage, nurWert, sonne, jetzt)[0];
+        Check.Gleich(Stufe.Wind, eigen.Stufe, "ohne Alarmbit zaehlt die eigene Grenze");
+        Check.Das(eigen.Grund.Contains("eigenen Grenze"), "und sagt, dass es die eigene war");
+
+        // Nur das Alarmbit, keine Geschwindigkeit: das ist der Regelfall.
+        var automatikNurBit = new Automatik();
+        var ruhig = new Wetterlage
+        {
+            Windalarm = new Messwert(0, jetzt),
+            HellSued = new Messwert(80000, jetzt),
+        };
+        Check.Das(automatikNurBit.Bewerten(anlage, ruhig, sonne, jetzt)[0].Stufe != Stufe.Wind,
+            "ein ruhiges Alarmbit reicht als Freigabe");
 
         // Regen.
         var automatik4 = new Automatik();
@@ -559,6 +591,67 @@ public static class Program
         anlage.VorhersageAktiv = false;
         var ohne = new Automatik().Bewerten(anlage, Lage(jetzt, wind: 2), sonne, jetzt)[0];
         Check.Das(ohne.Stufe != Stufe.Wind, "abgeschaltet zaehlt sie nicht");
+    }
+
+    // ===================================================================
+    // Die Oberflaeche
+    // ===================================================================
+
+    /// <summary>
+    /// Baut die beiden Seiten wirklich auf.
+    ///
+    /// Eine Seite besteht aus Knoepfen, Kacheln und Formatvorlagen, und ein
+    /// vergessener Eintrag in der Vorlagensammlung faellt sonst erst auf, wenn
+    /// jemand den Reiter oeffnet. Bedient wird nichts - gepruefte Frage ist
+    /// nur, ob sich beides ohne Bus und ohne Wetter aufbauen laesst.
+    /// </summary>
+    private static void Oberflaeche()
+    {
+        Check.Abschnitt("Oberflaeche");
+
+        if (System.Windows.Application.Current is null)
+        {
+            var anwendung = new System.Windows.Application();
+            anwendung.Resources.MergedDictionaries.Add(
+                (System.Windows.ResourceDictionary)System.Windows.Application.LoadComponent(
+                    new Uri("/REGOwintergarden;component/Ui/Styles.xaml", UriKind.Relative)));
+        }
+
+        var ordner = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "REGOwintergarden-pruefung");
+        System.IO.Directory.CreateDirectory(ordner);
+        var einstellungen = new Einstellungen { Anlage = Anlage.Beispiel() };
+        var dienst = new Wintergartendienst(einstellungen, ordner);
+        var fenster = new System.Windows.Window();
+
+        try
+        {
+            var bedienung = new REGOwintergarden.Ui.Uebersicht(dienst, fenster);
+            Check.Das(bedienung.Content is not null, "die Bedienseite baut sich auf");
+            bedienung.Auffrischen();
+            Check.Das(true, "und laesst sich auffrischen");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("  " + ex.GetType().Name + ": " + ex.Message);
+            Check.Das(false, "die Bedienseite baut sich auf");
+        }
+
+        try
+        {
+            var konfiguration = new REGOwintergarden.Ui.Konfigurationsseite(dienst, fenster,
+                new System.Windows.Controls.TextBlock());
+            Check.Das(konfiguration.Content is not null, "die Konfigurationsseite baut sich auf");
+            konfiguration.Auffrischen();
+            Check.Das(true, "und laesst sich auffrischen");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("  " + ex.GetType().Name + ": " + ex.Message);
+            Check.Das(false, "die Konfigurationsseite baut sich auf");
+        }
+
+        fenster.Close();
+        dienst.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
     // ===================================================================

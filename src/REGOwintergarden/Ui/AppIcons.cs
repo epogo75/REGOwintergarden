@@ -82,12 +82,21 @@ internal static class AppIcons
         ? (muted ? Color.FromArgb(130, 130, 130) : Color.FromArgb(26, 26, 26))
         : (muted ? Color.FromArgb(140, 140, 140) : Color.White);
 
+    /// <summary>
+    /// Die Farbe der Zeichnung auf dem gelben Grund.
+    ///
+    /// Dunkelbraun und nicht weiss: auf Sonnengelb hat Weiss zu wenig
+    /// Abstand, und bei sechzehn Punkten Kantenlaenge entscheidet der
+    /// Abstand darueber, ob man ueberhaupt noch etwas erkennt.
+    /// </summary>
+    private static readonly Color AufGelb = Color.FromArgb(0x4A, 0x2C, 0x00);
+
     // ---- Anwendung -------------------------------------------------------
 
     /// <summary>Das farbige Symbol als vollstaendige ICO-Daten.</summary>
     public static byte[] CreateAppIcoBytes()
     {
-        using var stream = BuildIco(AppSizes, size => DrawGlyph(size, muted: false, Color.White, BackgroundFor(size)));
+        using var stream = BuildIco(AppSizes, size => DrawGlyph(size, muted: false, AufGelb, BackgroundFor(size)));
         return stream.ToArray();
     }
 
@@ -133,8 +142,8 @@ internal static class AppIcons
     private static Brush BackgroundFor(int size)
         => new LinearGradientBrush(
             new RectangleF(0, 0, size, size),
-            Color.FromArgb(0x2F, 0xA8, 0x60),
-            Color.FromArgb(0x14, 0x6B, 0x3C),
+            Color.FromArgb(0xFF, 0xD8, 0x4D),
+            Color.FromArgb(0xF0, 0x92, 0x00),
             LinearGradientMode.ForwardDiagonal);
 
     // ---- Zeichnung -------------------------------------------------------
@@ -184,32 +193,53 @@ internal static class AppIcons
             LineJoin = LineJoin.Round,
         };
 
-        // Die Sonne oben links - gefuellt, damit sie auch klein eine Sonne
-        // bleibt und kein Ring.
-        var sonne = 4.6f * s;
-        g.FillEllipse(body, 5.5f * s - sonne / 2, 8f * s - sonne / 2, sonne, sonne);
+        // Die Sonne ist das Hauptmotiv: Scheibe mit acht Strahlen, oben
+        // mittig, darunter das Glasdach.
+        //
+        // Bei sechzehn Punkten Kantenlaenge bleibt von den Strahlen nur ein
+        // Kranz - das ist gewollt. Erkannt wird eine Sonne an der runden
+        // Scheibe mit dem Kranz und nicht an acht zaehlbaren Strichen.
+        var mitteX = 16f * s;
+        var mitteY = 11f * s;
+        var scheibe = 4.3f * s;
+        g.FillEllipse(body, mitteX - scheibe, mitteY - scheibe, scheibe * 2, scheibe * 2);
 
-        // Das Dach: von unten links schraeg hoch, dann waagerecht, dann
-        // hinunter.
-        g.DrawLines(stift, new[]
-        {
-            new PointF(5f * s, 26f * s),
-            new PointF(13f * s, 12f * s),
-            new PointF(27f * s, 12f * s),
-            new PointF(27f * s, 26f * s),
-        });
-
-        // Zwei Sprossen machen aus der Flaeche ein Glasdach.
-        using var duenn = new Pen(tint, Math.Max(1f, 1.5f * s))
+        using var strahl = new Pen(tint, Math.Max(1f, 1.9f * s))
         {
             StartCap = LineCap.Round,
             EndCap = LineCap.Round,
         };
-        g.DrawLine(duenn, 17.6f * s, 12f * s, 17.6f * s, 26f * s);
-        g.DrawLine(duenn, 22.3f * s, 12f * s, 22.3f * s, 26f * s);
+        for (var i = 0; i < 8; i++)
+        {
+            var winkel = i * Math.PI / 4;
+            var cos = (float)Math.Cos(winkel);
+            var sin = (float)Math.Sin(winkel);
+            g.DrawLine(strahl,
+                mitteX + cos * scheibe * 1.5f, mitteY + sin * scheibe * 1.5f,
+                mitteX + cos * scheibe * 2.15f, mitteY + sin * scheibe * 2.15f);
+        }
 
-        // Der Boden - er stellt das Dach auf und nimmt ihm das Schwebende.
-        g.DrawLine(stift, 4f * s, 26f * s, 28f * s, 26f * s);
+        // Darunter das Glasdach: schraeg hoch, waagerecht, hinunter - die
+        // Form, die einen Wintergarten von einem Haus unterscheidet.
+        g.DrawLines(stift, new[]
+        {
+            new PointF(5f * s, 27f * s),
+            new PointF(12f * s, 21.5f * s),
+            new PointF(27f * s, 21.5f * s),
+            new PointF(27f * s, 27f * s),
+        });
+
+        // Zwei Sprossen machen aus der Flaeche ein Glasdach.
+        using var duenn = new Pen(tint, Math.Max(1f, 1.4f * s))
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+        };
+        g.DrawLine(duenn, 17f * s, 21.5f * s, 17f * s, 27f * s);
+        g.DrawLine(duenn, 22f * s, 21.5f * s, 22f * s, 27f * s);
+
+        // Der Boden stellt das Dach auf und nimmt ihm das Schwebende.
+        g.DrawLine(stift, 4f * s, 27f * s, 28f * s, 27f * s);
         g.ResetTransform();
         return bitmap;
     }

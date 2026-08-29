@@ -242,7 +242,8 @@ public sealed class Wintergartendienst : IAsyncDisposable
         var anlage = Anlage;
         foreach (var adresse in new[]
                  {
-                     anlage.AdresseRegen, anlage.AdresseWind, anlage.AdresseAussen, anlage.AdresseInnen,
+                     anlage.AdresseRegen, anlage.AdresseWindalarm, anlage.AdresseWind,
+                     anlage.AdresseAussen, anlage.AdresseInnen,
                      anlage.AdresseHellOst, anlage.AdresseHellSued, anlage.AdresseHellWest,
                      anlage.AdresseAzimut, anlage.AdresseElevation,
                  })
@@ -271,6 +272,7 @@ public sealed class Wintergartendienst : IAsyncDisposable
         return new Wetterlage
         {
             Regen = Lies(anlage.AdresseRegen, "1.001"),
+            Windalarm = Lies(anlage.AdresseWindalarm, "1.001"),
             Wind = Lies(anlage.AdresseWind, "9.005"),
             Aussen = Lies(anlage.AdresseAussen, "9.001"),
             Innen = Lies(anlage.AdresseInnen, "9.001"),

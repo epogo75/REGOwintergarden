@@ -164,6 +164,17 @@ public sealed class Anlage
     [JsonPropertyName("adresse_regen")]
     public string AdresseRegen { get; set; } = "";
 
+    /// <summary>
+    /// Das Windalarm-Bit der Wetterstation, DPT 1.x.
+    ///
+    /// Die eigentliche Ueberwachung laeuft in der KNX-Logik - Boeenerkennung,
+    /// Grenze, Nachlauf. Dieses Programm wertet das Ergebnis aus, statt
+    /// daneben einen zweiten Waechter mit anderen Grenzen zu bauen.
+    /// </summary>
+    [JsonPropertyName("adresse_windalarm")]
+    public string AdresseWindalarm { get; set; } = "";
+
+    /// <summary>Windgeschwindigkeit in m/s - zur Anzeige und als eigene Zusatzgrenze.</summary>
     [JsonPropertyName("adresse_wind")]
     public string AdresseWind { get; set; } = "";
 

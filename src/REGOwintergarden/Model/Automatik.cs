@@ -50,6 +50,16 @@ public enum Stufe
 /// </summary>
 public sealed record Lage(Motor Motor, Stufe Stufe, double? Ziel, double? Lamelle, string Grund)
 {
+    /// <summary>
+    /// Wann sich von selbst etwas aendert - oder <c>null</c>, wenn nichts
+    /// aussteht.
+    ///
+    /// Das ist die Angabe, die eine Steuerung durchschaubar macht: nicht nur
+    /// „wartet noch", sondern „ab 14:37". Wer sie nicht hat, sieht ein
+    /// Programm, das irgendwann irgendetwas tut.
+    /// </summary>
+    public DateTime? Naechstes { get; init; }
+
     public override string ToString() =>
         Motor.Name + ": " + Grund + (Ziel is null
             ? ""
@@ -137,30 +147,47 @@ public sealed class Automatik
         var sicher = motor.Sicherheitsposition;
 
         // ---- Wind ---------------------------------------------------------
+        //
+        // Die Wetterstation meldet den Windalarm als fertiges Bit - dort
+        // laeuft die Ueberwachung mit Boeenerkennung und Nachlauf. Dieses Bit
+        // hat Vorrang. Die Geschwindigkeit in m/s wird trotzdem ausgewertet,
+        // aber nur zusaetzlich: eine Markise darf empfindlicher sein als die
+        // eine Grenze, die in der Station eingestellt ist.
         if (anlage.WindschutzAktiv && sicher is not null)
         {
-            var wind = wetter.Wind;
-            var frisch = wind is not null && wind.Value.IstFrisch(jetzt, anlage.HoechstalterWind);
+            var alarm = wetter.Windalarm;
+            var alarmFrisch = alarm is not null && alarm.Value.IstFrisch(jetzt, anlage.HoechstalterWind);
 
-            if (!frisch)
+            var wind = wetter.Wind;
+            var windFrisch = wind is not null && wind.Value.IstFrisch(jetzt, anlage.HoechstalterWind);
+
+            if (!alarmFrisch && !windFrisch)
             {
-                // Kein brauchbarer Windwert. Das ist keine Ruhe, sondern
-                // Unwissenheit - und bei Unwissenheit faehrt eine Markise ein.
-                // Wer hier den letzten bekannten Wert weiterlaufen laesst,
-                // baut eine Steuerung, die nach dem Ausfall der Station im
-                // naechsten Sturm nichts tut.
+                // Weder Alarmbit noch Geschwindigkeit. Das ist keine Ruhe,
+                // sondern Unwissenheit - und bei Unwissenheit faehrt eine
+                // Markise ein. Wer hier den letzten bekannten Wert
+                // weiterlaufen laesst, baut eine Steuerung, die nach dem
+                // Ausfall der Station im naechsten Sturm nichts tut.
                 merker.WindBis = jetzt + anlage.WindNachlauf;
                 return new Lage(motor, Stufe.Wind, sicher, null,
-                    wind is null
-                        ? "kein Windwert - zur Sicherheit eingefahren"
-                        : "Windwert ist zu alt (" + Alter(wind.Value, jetzt) + ") - zur Sicherheit eingefahren");
+                    alarm is null && wind is null
+                        ? "kein Windwert von der Wetterstation - zur Sicherheit eingefahren"
+                        : "der Windwert ist zu alt - zur Sicherheit eingefahren");
             }
 
-            if (wind!.Value.Wert >= motor.Windgrenze)
+            if (alarmFrisch && alarm!.Value.Wert > 0.5)
             {
                 merker.WindBis = jetzt + anlage.WindNachlauf;
                 return new Lage(motor, Stufe.Wind, sicher, null,
-                    "Wind " + Zahl(wind.Value.Wert) + " m/s ueber der Grenze von "
+                    "Windalarm von der Wetterstation"
+                    + (windFrisch ? " (" + Zahl(wind!.Value.Wert) + " m/s)" : ""));
+            }
+
+            if (windFrisch && wind!.Value.Wert >= motor.Windgrenze)
+            {
+                merker.WindBis = jetzt + anlage.WindNachlauf;
+                return new Lage(motor, Stufe.Wind, sicher, null,
+                    "Wind " + Zahl(wind.Value.Wert) + " m/s ueber der eigenen Grenze von "
                     + Zahl(motor.Windgrenze) + " m/s");
             }
 
@@ -176,11 +203,15 @@ public sealed class Automatik
             if (merker.WindBis is { } bis && bis > jetzt)
             {
                 return new Lage(motor, Stufe.Wind, sicher, null,
-                    "Windalarm laeuft noch nach bis " + Uhr(bis));
+                    "Windalarm laeuft noch nach bis " + Uhr(bis)) { Naechstes = bis };
             }
         }
 
         // ---- Regen --------------------------------------------------------
+        //
+        // Auch der Regen kommt als fertiges Bit. Die Station hat den Sensor,
+        // die Heizung darin und die Nachlaufzeit - hier wird ausgewertet, was
+        // sie meldet, und nicht daneben geraten.
         if (anlage.RegenschutzAktiv && motor.Regenschutz && sicher is not null)
         {
             var regen = wetter.Regen;
@@ -188,12 +219,12 @@ public sealed class Automatik
                 && regen.Value.Wert > 0.5)
             {
                 merker.RegenBis = jetzt + anlage.RegenNachlauf;
-                return new Lage(motor, Stufe.Regen, sicher, null, "es regnet");
+                return new Lage(motor, Stufe.Regen, sicher, null, "Regenmeldung von der Wetterstation");
             }
             if (merker.RegenBis is { } bis && bis > jetzt)
             {
                 return new Lage(motor, Stufe.Regen, sicher, null,
-                    "Regenschutz laeuft noch nach bis " + Uhr(bis));
+                    "Regenschutz laeuft noch nach bis " + Uhr(bis)) { Naechstes = bis };
             }
         }
 
@@ -214,7 +245,7 @@ public sealed class Automatik
         if (merker.HandBis is { } handBis && handBis > jetzt)
         {
             return new Lage(motor, Stufe.Hand, null, null,
-                "von Hand bedient - Automatik pausiert bis " + Uhr(handBis));
+                "von Hand bedient - Automatik pausiert bis " + Uhr(handBis)) { Naechstes = handBis };
         }
 
         // ---- Beschattung --------------------------------------------------
@@ -270,7 +301,10 @@ public sealed class Automatik
             if (wartet > TimeSpan.Zero && !merker.Beschattet)
             {
                 return new Lage(motor, Stufe.Frei, null, null,
-                    "Sonne auf der Flaeche, wartet noch " + Minuten(wartet) + " vor dem Beschatten");
+                    "Sonne auf der Flaeche, wartet noch " + Minuten(wartet) + " vor dem Beschatten")
+                {
+                    Naechstes = jetzt + wartet,
+                };
             }
 
             merker.Beschattet = true;
@@ -291,7 +325,10 @@ public sealed class Automatik
             return new Lage(motor, Stufe.Beschattung, motor.Beschattungsposition,
                 motor.HatLamelle ? motor.Lamellenposition : null,
                 "beschattet, oeffnet in " + Minuten(restzeit)
-                + (aufDerFlaeche ? " (zu dunkel)" : " (Sonne nicht mehr auf der Flaeche)"));
+                + (aufDerFlaeche ? " (zu dunkel)" : " (Sonne nicht mehr auf der Flaeche)"))
+            {
+                Naechstes = jetzt + restzeit,
+            };
         }
 
         merker.Beschattet = false;

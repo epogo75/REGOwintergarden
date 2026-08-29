@@ -17,11 +17,44 @@ sind.
 Das ist der Sinn dieses Programms: es hält die Regeln an einer Stelle, und es
 sagt bei jedem Antrieb dazu, **warum** er gerade dort steht, wo er steht.
 
-## Die Übersicht
+## Zwei Reiter, und das ist Absicht
 
-Der erste Reiter ist für den Alltag gemacht und nicht für den Errichter.
+Vorn **Bedienung**, dahinter **Konfiguration**. Wer den Wintergarten benutzt,
+will wissen, ob die Markise gleich ausfährt. Wer ihn eingerichtet hat, will
+Gruppenadressen eintragen. Das sind zwei verschiedene Leute mit zwei
+verschiedenen Fragen, und eine Oberfläche, die beides mischt, bedient keinen
+von beiden.
 
-**Fünf Leuchten** oben: Wind, Regen, draußen, drinnen, Helligkeit. Jede mit
+Gatewayadresse, Verbinden, Projektimport und Dienst liegen deshalb **nicht** in
+der Kopfzeile, sondern unter Konfiguration → Anschluss. Eine Gatewayadresse
+trägt man einmal ein; sie danach jeden Tag anzuzeigen sagt niemandem etwas. In
+der Fußzeile steht dafür in einem Satz, ob überhaupt gefahren werden kann — und
+daneben die zuletzt ausgeführte Aktion.
+
+## Die Bedienseite
+
+Sie ist für den Alltag gemacht und nicht für den Errichter.
+
+**Ganz oben ein Statusband** in einem Satz: „Alles ruhig", „Beschattung läuft",
+„Windschutz aktiv" — mit Symbol, in Farbe, und darunter die Erklärung dazu:
+
+> 2 von 8 Antrieben sind in Sicherheit gefahren. Die Sonne steht im Südwesten,
+> 34 Grad über dem Horizont; Untergang um 20:41.
+
+Fehlt ein Wert, steht das im selben Satz: „Es fehlt ein aktueller Wert für Wind
+— solange fährt die Anlage vorsichtig."
+
+**„Als Nächstes"** zeigt, was von selbst passieren wird, mit Uhrzeit und
+Abstand:
+
+> in 4 min · 14:38 — Markise Süd: fährt zum Beschatten aus
+> in 12 min · 14:46 — Jalousie West: Windalarm endet, danach entscheidet wieder die Automatik
+> um 20:11 — alle Antriebe: Zeitschaltuhr fährt auf 100 %
+
+Das ist der Unterschied zwischen einer Steuerung, die willkürlich wirkt, und
+einer, die man versteht: nicht nur den Zustand zeigen, sondern die **Absicht**.
+
+**Fünf Leuchten**: Wind, Regen, draußen, drinnen, Helligkeit. Jede mit
 gezeichnetem Sinnbild, jede mit drei Zuständen — ruhig, rot, ausgegraut. Der
 dritte ist der wichtige: **ausgegraut heißt „dazu weiß ich nichts"**, und das
 ist etwas anderes als Windstille.
@@ -64,13 +97,25 @@ Programms:
 Eine ausgefahrene Markise im Sturm ist ein Schaden, eine unbeschattete Scheibe
 ist keiner. Deshalb steht Wind ganz oben — auch über dem Handgriff.
 
-### Wind
+### Wind und Regen — die Wetterstation ist der Wächter
 
-**Ein stiller Windmesser ist keine Windstille.** Kommt länger als zehn Minuten
-kein Wert, fährt alles mit sicherer Seite ein, und der Grund sagt es:
-„Windwert ist zu alt (23 min) — zur Sicherheit eingefahren". Wer stattdessen
-den letzten bekannten Wert weiterlaufen lässt, baut eine Steuerung, die nach
-dem Ausfall der Station im nächsten Sturm nichts tut.
+**Windalarm und Regen kommen als fertige Bits von der Wetterstation.** Dort
+läuft die eigentliche Überwachung: Böenerkennung, Grenze, Nachlauf, beim Regen
+der beheizte Sensor. Dieses Programm wertet das Ergebnis aus, statt daneben
+einen zweiten Wächter mit anderen Grenzen zu bauen — zwei Wächter, die sich
+uneinig sind, sind schlimmer als einer.
+
+Die **Geschwindigkeit in m/s** wird trotzdem gelesen. Sie steht in der Anzeige
+(„Windalarm" beruhigt niemanden, „Windalarm, 14 m/s" schon) und dient als
+zusätzliche Grenze je Antrieb: eine empfindliche Markise darf früher einfahren
+als die eine Grenze, die in der Station eingestellt ist. Das Alarmbit schlägt
+diese Grenze immer.
+
+**Ein stiller Windmesser ist keine Windstille.** Kommt weder Bit noch Wert
+länger als zehn Minuten, fährt alles mit sicherer Seite ein, und der Grund sagt
+es: „kein Windwert von der Wetterstation — zur Sicherheit eingefahren". Wer
+stattdessen den letzten bekannten Wert weiterlaufen lässt, baut eine Steuerung,
+die nach dem Ausfall der Station im nächsten Sturm nichts tut.
 
 Nach dem Abflauen **läuft der Alarm nach** (20 min): sofort wieder auszufahren
 hieße, in die nächste Böe zu fahren.
@@ -130,8 +175,13 @@ im Juni, wo `null` die ehrliche Antwort ist und keine erfundene Uhrzeit.
 
 ## Wetter
 
-Von der KNX-Wetterstation: Regen, Wind, Außentemperatur, Innentemperatur,
-Helligkeit Ost/Süd/West, wahlweise Azimut und Elevation.
+Von der KNX-Wetterstation: **Windalarm und Regen als Bit**, dazu Wind in m/s,
+Außentemperatur, Innentemperatur, Helligkeit Ost/Süd/West und wahlweise Azimut
+und Elevation.
+
+Die Aufteilung ist Absicht: die Überwachung gehört in die KNX-Logik, wo sie auch
+dann läuft, wenn dieses Programm nicht läuft. Hier wird ausgewertet, angezeigt
+und erklärt.
 
 **Jeder Wert trägt seinen Zeitpunkt.** Das ist nicht Beiwerk, sondern der halbe
 Sinn — siehe Wind. Wie alt ein Wert höchstens sein darf, steht je Größe im

@@ -27,6 +27,11 @@ public sealed class Uebersicht : UserControl
     private readonly Kompass _kompass = new();
     private readonly WrapPanel _kacheln = new();
     private readonly TextBlock _kopfzeile = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly Border _band = new();
+    private readonly TextBlock _ueberschrift = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _erklaerung = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly ContentControl _bandbild = new();
+    private readonly StackPanel _vorschau = new() { Width = 300 };
     private readonly TextBlock _vorhersage = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _naechste = new() { TextWrapping = TextWrapping.Wrap };
     private readonly CheckBox _automatik = new() { Content = "Automatik eingeschaltet" };
@@ -64,12 +69,38 @@ public sealed class Uebersicht : UserControl
         };
         var spalte = new StackPanel();
 
-        _kopfzeile.FontSize = 15;
-        _kopfzeile.Foreground = Farbe("Schrift");
+        // Das Statusband: ein Satz, der sagt, was gerade gilt - und einer,
+        // der ihn erklaert. Das ist die erste Zeile, die jemand liest, und
+        // sie soll ohne Vorkenntnis verstaendlich sein.
+        _ueberschrift.FontSize = 24;
+        _ueberschrift.FontWeight = FontWeights.SemiBold;
+        _erklaerung.Style = (Style)Application.Current.Resources["Hinweis"];
+        _erklaerung.Margin = new Thickness(0, 4, 0, 0);
+        _erklaerung.FontSize = 13;
+
+        var bandtext = new StackPanel();
+        bandtext.Children.Add(_ueberschrift);
+        bandtext.Children.Add(_erklaerung);
+
+        var band = new DockPanel { LastChildFill = true };
+        _bandbild.Margin = new Thickness(0, 0, 14, 0);
+        _bandbild.VerticalAlignment = VerticalAlignment.Center;
+        DockPanel.SetDock(_bandbild, Dock.Left);
+        band.Children.Add(_bandbild);
+        band.Children.Add(bandtext);
+
+        _band.Style = (Style)Application.Current.Resources["Gruppenkarte"];
+        _band.Margin = new Thickness(0, 0, 0, 12);
+        _band.Child = band;
+        spalte.Children.Add(_band);
+
+        _kopfzeile.Style = (Style)Application.Current.Resources["Hinweis"];
         _kopfzeile.Margin = new Thickness(0, 0, 0, 4);
         spalte.Children.Add(_kopfzeile);
 
         _automatik.Margin = new Thickness(0, 0, 0, 12);
+        _automatik.ToolTip = "Aus heisst: es wird nichts von selbst gefahren - auch kein Wind- oder "
+                             + "Regenschutz.";
         _automatik.Click += (_, _) =>
         {
             if (_fuellt) return;
@@ -110,6 +141,23 @@ public sealed class Uebersicht : UserControl
             Margin = new Thickness(0, 0, 12, 12),
             Child = _kompass,
         });
+
+        // Was als Naechstes von selbst passiert. Eine Steuerung, die nur
+        // ihren Zustand zeigt, wirkt willkuerlich - eine, die ihre Absicht
+        // zeigt, wird nachvollziehbar.
+        links.Children.Add(new TextBlock
+        {
+            Text = "Als Naechstes",
+            Style = (Style)Application.Current.Resources["Ueberschrift"],
+            Margin = new Thickness(0, 0, 0, 4),
+        });
+        links.Children.Add(new Border
+        {
+            Style = (Style)Application.Current.Resources["Gruppenkarte"],
+            Margin = new Thickness(0, 0, 12, 12),
+            Child = _vorschau,
+        });
+
         _naechste.Style = (Style)Application.Current.Resources["Hinweis"];
         _naechste.Margin = new Thickness(0, 0, 12, 0);
         links.Children.Add(_naechste);
@@ -148,7 +196,11 @@ public sealed class Uebersicht : UserControl
 
             _automatik.IsChecked = anlage.AutomatikAktiv;
             _kopfzeile.Text = anlage.Name + " · " + anlage.Motoren.Count.ToString(CultureInfo.CurrentCulture)
-                              + " Antriebe · Sonnenstand " + _dienst.Sonnenquelle;
+                              + " Antriebe · Sonnenstand " + _dienst.Sonnenquelle
+                              + " · " + Busstand();
+
+            Statusband(anlage, lagen, wetter, sonne, jetzt);
+            Vorschau(anlage, lagen, jetzt);
 
             Leuchten(anlage, wetter, jetzt);
             _vorhersage.Text = anlage.Vorhersage is { } sicht
@@ -168,22 +220,120 @@ public sealed class Uebersicht : UserControl
         }
     }
 
+    /// <summary>Ob ueberhaupt gefahren werden kann - in einem Halbsatz.</summary>
+    private string Busstand() => _dienst.Stand switch
+    {
+        App.Busstand.Verbunden => "mit dem Bus verbunden",
+        App.Busstand.Verbinde => "verbindet sich gerade",
+        App.Busstand.Fehler => "keine Busverbindung",
+        _ => "nicht mit dem Bus verbunden",
+    };
+
+    /// <summary>
+    /// Das Statusband: was gerade gilt und was das heisst.
+    ///
+    /// Die Farbe traegt die halbe Auskunft - rot heisst „etwas haelt gerade
+    /// fest", gruen heisst „es passiert etwas", grau heisst „nichts zu tun".
+    /// </summary>
+    private void Statusband(Anlage anlage, IReadOnlyList<Lage> lagen, Wetterlage wetter,
+        Sonnenstand sonne, DateTime jetzt)
+    {
+        var (text, ton) = Lagebericht.Ueberschrift(anlage, lagen);
+        _ueberschrift.Text = text;
+        _erklaerung.Text = Lagebericht.Erklaerung(anlage, lagen, wetter, sonne, jetzt);
+
+        var farbe = ton switch
+        {
+            Lagebericht.Ton.Warnung => Farbe("Fehler"),
+            Lagebericht.Ton.Taetig => Farbe("Betont"),
+            _ => Farbe("Nebenschrift"),
+        };
+        _ueberschrift.Foreground = farbe;
+        _band.BorderBrush = ton == Lagebericht.Ton.Ruhig ? Farbe("Linie") : farbe;
+        _band.BorderThickness = new Thickness(ton == Lagebericht.Ton.Ruhig ? 1 : 2);
+
+        var bild = ton switch
+        {
+            Lagebericht.Ton.Warnung => Symbole.Warnung,
+            Lagebericht.Ton.Taetig => Symbole.Sonne,
+            _ => Symbole.Haus,
+        };
+        _bandbild.Content = Symbole.Zeichnen(bild, farbe, 40, 1.8);
+    }
+
+    /// <summary>Was als Naechstes von selbst passiert.</summary>
+    private void Vorschau(Anlage anlage, IReadOnlyList<Lage> lagen, DateTime jetzt)
+    {
+        _vorschau.Children.Clear();
+
+        var punkte = Lagebericht.Naechstes(anlage, lagen,
+            zeit => Astro.Berechnen(zeit, anlage.Breite, anlage.Laenge), jetzt);
+
+        if (punkte.Count == 0)
+        {
+            _vorschau.Children.Add(new TextBlock
+            {
+                Text = "Nichts angekuendigt. Was als Naechstes geschieht, entscheidet das Wetter.",
+                Style = (Style)Application.Current.Resources["Hinweis"],
+                TextWrapping = TextWrapping.Wrap,
+            });
+            return;
+        }
+
+        foreach (var punkt in punkte)
+        {
+            var zeile = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+            zeile.Children.Add(new TextBlock
+            {
+                Text = punkt.In(jetzt) + "  ·  " + punkt.Uhrzeit,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = Farbe("Betont"),
+                FontSize = 12,
+            });
+            zeile.Children.Add(new TextBlock
+            {
+                Text = punkt.Antrieb + ": " + punkt.Was,
+                Style = (Style)Application.Current.Resources["Hinweis"],
+                TextWrapping = TextWrapping.Wrap,
+            });
+            _vorschau.Children.Add(zeile);
+        }
+    }
+
     private void Leuchten(Anlage anlage, Wetterlage wetter, DateTime jetzt)
     {
         // Wind: drei Zustaende. Ein fehlender Wert ist kein Windstille-Wert,
         // und die Anzeige sagt das auch so.
-        if (wetter.Wind is { } wind && wind.IstFrisch(jetzt, anlage.HoechstalterWind))
+        //
+        // Der Alarm kommt als Bit von der Wetterstation - er zaehlt. Die
+        // Geschwindigkeit steht daneben, weil eine Zahl mehr sagt als ein
+        // Bit: „Windalarm" beruhigt niemanden, „Windalarm, 14 m/s" schon.
+        var alarmbit = wetter.Windalarm;
+        var alarmFrisch = alarmbit is not null && alarmbit.Value.IstFrisch(jetzt, anlage.HoechstalterWind);
+        var windwert = wetter.Wind;
+        var windFrisch = windwert is not null && windwert.Value.IstFrisch(jetzt, anlage.HoechstalterWind);
+
+        if (alarmFrisch || windFrisch)
         {
-            var alarm = false;
-            foreach (var motor in anlage.Motoren)
+            var alarm = alarmFrisch && alarmbit!.Value.Wert > 0.5;
+            if (!alarm && windFrisch)
             {
-                if (motor.Sicherheitsposition is not null && wind.Wert >= motor.Windgrenze) alarm = true;
+                foreach (var motor in anlage.Motoren)
+                {
+                    if (motor.Sicherheitsposition is not null && windwert!.Value.Wert >= motor.Windgrenze)
+                    {
+                        alarm = true;
+                    }
+                }
             }
-            _wind.Zeigen(Zahl(wind.Wert) + " m/s", alarm);
+
+            var text = windFrisch ? Zahl(windwert!.Value.Wert) + " m/s" : alarm ? "Alarm" : "ruhig";
+            if (alarm && windFrisch) text += "  Alarm";
+            _wind.Zeigen(text, alarm);
         }
         else
         {
-            _wind.Zeigen(wetter.Wind is null ? "kein Wert" : "veraltet", true, bekannt: false);
+            _wind.Zeigen(alarmbit is null && windwert is null ? "kein Wert" : "veraltet", true, bekannt: false);
         }
 
         if (wetter.Regen is { } regen && regen.IstFrisch(jetzt, anlage.HoechstalterRegen))

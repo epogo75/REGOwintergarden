@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -9,16 +10,22 @@ using REGOwintergarden.Service;
 
 namespace REGOwintergarden.Ui;
 
+/// <summary>
+/// Das Hauptfenster - zwei Reiter, und das ist Absicht.
+///
+/// Vorn <b>Bedienung</b>: was gerade gilt, was als Naechstes passiert, und
+/// drei Knoepfe je Antrieb. Dahinter <b>Konfiguration</b>: Anschluss,
+/// Antriebe, Grenzen, Schaltzeiten, Protokoll. Wer den Wintergarten benutzt,
+/// braucht den zweiten Reiter nie.
+/// </summary>
 public partial class MainWindow : Window
 {
     private readonly Einstellungen _einstellungen;
     private readonly Wintergartendienst _dienst;
     private readonly string _ordner = Einstellungen.StandardOrdner;
 
-    private readonly Uebersicht _uebersicht;
-    private readonly Antriebsseite _antriebe;
-    private readonly Anlageseite _anlage;
-    private readonly Zeitseite _zeiten;
+    private readonly Uebersicht _bedienung;
+    private readonly Konfigurationsseite _konfiguration;
 
     private readonly ObservableCollection<Protokollzeile> _protokoll = new();
     private const int HoechstensZeilen = 2000;
@@ -27,50 +34,27 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Title = Programmstand.Titel();
+        Icon = AppIcons.CreateWindowIcon();
 
         _einstellungen = Einstellungen.Laden(_ordner);
         _dienst = new Wintergartendienst(_einstellungen, _ordner);
 
-        GatewayBox.Text = _einstellungen.Gateway;
         _dienst.StandGeaendert += (stand, text) => AufOberflaeche(() => Verbindung(stand, text));
         _dienst.Protokolliert += zeile => AufOberflaeche(() => Melden(zeile));
 
-        _uebersicht = new Uebersicht(_dienst, this);
-        _uebersicht.Gespeichert += Speichern;
-        TabUebersicht.Content = _uebersicht;
+        _bedienung = new Uebersicht(_dienst, this);
+        _bedienung.Gespeichert += Speichern;
+        TabBedienung.Content = _bedienung;
 
-        _antriebe = new Antriebsseite(_dienst, this);
-        TabAntriebe.Content = _antriebe;
-
-        _anlage = new Anlageseite(_dienst, this);
-        _anlage.Gespeichert += () =>
+        _konfiguration = new Konfigurationsseite(_dienst, this, Protokollseite());
+        _konfiguration.Gespeichert += () =>
         {
             Speichern();
-            _uebersicht.Auffrischen();
+            _bedienung.Auffrischen();
         };
-        TabAnlage.Content = _anlage;
-
-        _zeiten = new Zeitseite(_dienst, this);
-        _zeiten.Gespeichert += () =>
-        {
-            Speichern();
-            _uebersicht.Auffrischen();
-        };
-        TabZeiten.Content = _zeiten;
-
-        // Erst jetzt anhaengen: die Antriebsseite frischt die Zeitseite mit
-        // auf, und die gibt es vorher noch nicht.
-        _antriebe.Gespeichert += () =>
-        {
-            Speichern();
-            _uebersicht.Auffrischen();
-            _zeiten.Auffrischen();
-        };
-
-        TabProtokoll.Content = Protokollseite();
+        TabKonfiguration.Content = _konfiguration;
 
         Verbindung(Busstand.Getrennt, null);
-        Dienstlage();
 
         // Die Automatik laeuft mit, solange das Fenster offen ist. Ist der
         // Dienst eingerichtet, rechnet der ohnehin - dann waere das hier ein
@@ -86,17 +70,16 @@ public partial class MainWindow : Window
         else Dispatcher.BeginInvoke(was);
     }
 
-    // ---- Kopfzeile ---------------------------------------------------------
+    // ---- Fusszeile ---------------------------------------------------------
 
     private void Verbindung(Busstand stand, string? text)
     {
-        ButtonConnect.Content = stand == Busstand.Verbunden ? "Trennen" : "Verbinden";
         LinkText.Text = stand switch
         {
-            Busstand.Verbunden => "verbunden — eigene Adresse " + text,
-            Busstand.Verbinde => "verbinde…",
-            Busstand.Fehler => text ?? "Fehler",
-            _ => "getrennt",
+            Busstand.Verbunden => "Mit dem KNX-Bus verbunden",
+            Busstand.Verbinde => "Verbindung wird aufgebaut…",
+            Busstand.Fehler => "Keine Busverbindung — " + (text ?? "Fehler"),
+            _ => "Nicht mit dem Bus verbunden — unter Konfiguration einrichten",
         };
         LinkText.Foreground = (Brush)FindResource(stand switch
         {
@@ -104,42 +87,9 @@ public partial class MainWindow : Window
             Busstand.Fehler => "Fehler",
             _ => "Nebenschrift",
         });
+
+        _konfiguration?.Auffrischen();
     }
-
-    private void Dienstlage()
-    {
-        StatusText.Text = Dienstlauf.Eingerichtet()
-            ? "Der Windows-Dienst ist eingerichtet und rechnet - dieses Fenster zeigt nur an."
-            : "Die Automatik laeuft in diesem Fenster. Fuer den Dauerbetrieb den Dienst einrichten "
-              + "(Reiter Anlage).";
-    }
-
-    private async void OnConnectClick(object sender, RoutedEventArgs e)
-    {
-        ButtonConnect.IsEnabled = false;
-        try
-        {
-            if (_dienst.Stand == Busstand.Verbunden)
-            {
-                await _dienst.TrennenAsync();
-            }
-            else
-            {
-                _einstellungen.Gateway = GatewayBox.Text.Trim();
-                Speichern();
-                await _dienst.VerbindenAsync(_einstellungen.Gateway);
-            }
-        }
-        finally
-        {
-            ButtonConnect.IsEnabled = true;
-        }
-    }
-
-    private async void OnReadClick(object sender, RoutedEventArgs e) => await _dienst.AbfragenAsync();
-
-    private void OnAboutClick(object sender, RoutedEventArgs e) =>
-        new UeberFenster { Owner = this }.ShowDialog();
 
     // ---- Protokoll ---------------------------------------------------------
 
@@ -188,13 +138,13 @@ public partial class MainWindow : Window
         spalten.Columns.Add(new GridViewColumn
         {
             Header = "Was",
-            Width = 200,
+            Width = 220,
             DisplayMemberBinding = new Binding(nameof(Protokollzeile.Was)),
         });
         spalten.Columns.Add(new GridViewColumn
         {
             Header = "Dazu",
-            Width = 800,
+            Width = 820,
             DisplayMemberBinding = new Binding(nameof(Protokollzeile.Dazu)),
         });
         liste.View = spalten;
@@ -211,13 +161,19 @@ public partial class MainWindow : Window
     {
         _protokoll.Insert(0, zeile);
         while (_protokoll.Count > HoechstensZeilen) _protokoll.RemoveAt(_protokoll.Count - 1);
+
+        // Die Fusszeile zeigt immer die letzte Meldung. Das ist die zweite
+        // Haelfte der Durchschaubarkeit: oben steht, was gilt, unten, was
+        // zuletzt wirklich getan wurde.
+        StatusText.Text = zeile.Uhrzeit + "  " + zeile.Was + ": " + zeile.Dazu;
+        StatusText.Foreground = (Brush)FindResource(zeile.Problem ? "Fehler" : "Nebenschrift");
     }
 
     // ---- Sichern -----------------------------------------------------------
 
     private void Speichern()
     {
-        _einstellungen.Gateway = GatewayBox.Text.Trim();
+        _einstellungen.Gateway = _konfiguration?.Gateway ?? _einstellungen.Gateway;
         _einstellungen.Speichern(_ordner);
     }
 

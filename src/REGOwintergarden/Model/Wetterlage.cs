@@ -34,7 +34,22 @@ public sealed class Wetterlage
     /// <summary>Regen, 0 oder 1.</summary>
     public Messwert? Regen { get; set; }
 
-    /// <summary>Windgeschwindigkeit in m/s.</summary>
+    /// <summary>
+    /// Windalarm als fertiges Bit von der Wetterstation.
+    ///
+    /// <b>Das ist der Regelfall und die eigentliche Wahrheit.</b> Die
+    /// Ueberwachung laeuft in der KNX-Logik: die Station kennt ihre
+    /// Boeenerkennung, ihre Nachlaufzeiten und ihre Hysterese, und sie meldet
+    /// das Ergebnis als ein Bit. Dieses Programm wertet es aus, statt daneben
+    /// eine zweite Ueberwachung zu bauen - zwei Waechter mit verschiedenen
+    /// Grenzen sind schlimmer als einer.
+    /// </summary>
+    public Messwert? Windalarm { get; set; }
+
+    /// <summary>
+    /// Windgeschwindigkeit in m/s - zur Anzeige und fuer Antriebe, die
+    /// empfindlicher sind als die Station eingestellt ist.
+    /// </summary>
     public Messwert? Wind { get; set; }
 
     /// <summary>Aussentemperatur in Grad.</summary>
