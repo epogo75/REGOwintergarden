@@ -38,6 +38,10 @@
     <Description>Wintergartensteuerung ueber KNX: Beschattung, Lueftung, Wetterschutz.</Description>
 
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Ohne diese Zeile liegt app.ico zwar daneben, wird aber nie in die EXE
+         gebunden - im Explorer und in der Taskleiste steht dann das
+         Standardsymbol. Das faellt erst auf, wenn man hinsieht. -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>

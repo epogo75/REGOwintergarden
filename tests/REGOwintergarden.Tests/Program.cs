@@ -679,6 +679,24 @@ public static class Program
         Check.Gleich((short)1, BitConverter.ToInt16(bytes, 2), "sie ist als Symbol gekennzeichnet");
         Check.Das(BitConverter.ToInt16(bytes, 4) >= 6, "und enthaelt mehrere Groessen");
 
+        // Das Symbol muss auch in die EXE gebunden sein.
+        //
+        // Ohne <ApplicationIcon> im Projekt liegt app.ico zwar daneben, aber
+        // im Explorer und in der Taskleiste steht das Standardsymbol - und
+        // das faellt erst auf, wenn jemand hinsieht. Genau das ist hier
+        // passiert.
+        var wurzel = Projektwurzel();
+        if (wurzel is not null)
+        {
+            var projekt = System.IO.Path.Combine(wurzel, "src", "REGOwintergarden",
+                "REGOwintergarden.csproj");
+            var symboldatei = System.IO.Path.Combine(wurzel, "src", "REGOwintergarden", "app.ico");
+
+            Check.Das(System.IO.File.Exists(symboldatei), "app.ico liegt im Projekt");
+            Check.Das(System.IO.File.ReadAllText(projekt).Contains("<ApplicationIcon>"),
+                "und das Projekt bindet sie als Anwendungssymbol ein");
+        }
+
         // Der Anteil deckender Punkte: ein gezeichnetes Symbol fuellt seine
         // Flaeche, ein leeres nicht.
         using var symbol = REGOwintergarden.Ui.AppIcons.CreateTrayIcon();
@@ -694,6 +712,26 @@ public static class Program
         var anteil = deckend / (double)(abzug.Width * abzug.Height);
         Console.WriteLine("  deckende Punkte: " + (anteil * 100).ToString("0", CultureInfo.InvariantCulture) + " %");
         Check.Das(anteil > 0.1, "das Symbol ist gezeichnet und nicht leer");
+    }
+
+    /// <summary>
+    /// Der Ordner, in dem src\ und tests\ liegen - oder <c>null</c>, wenn die
+    /// Pruefungen von woanders laufen. Dann wird der Teil uebersprungen statt
+    /// zu scheitern.
+    /// </summary>
+    private static string? Projektwurzel()
+    {
+        var ordner = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (ordner is not null)
+        {
+            if (System.IO.Directory.Exists(System.IO.Path.Combine(ordner.FullName, "src"))
+                && System.IO.Directory.Exists(System.IO.Path.Combine(ordner.FullName, "tests")))
+            {
+                return ordner.FullName;
+            }
+            ordner = ordner.Parent;
+        }
+        return null;
     }
 
     // ===================================================================
