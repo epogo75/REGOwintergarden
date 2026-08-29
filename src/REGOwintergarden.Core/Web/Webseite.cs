@@ -48,7 +48,14 @@ public static class Webseite
     {
         html.Append("<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">");
         html.Append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
-        html.Append("<title>").Append(Sicher(anlage.Name)).Append("</title>");
+        html.Append("<title>REGOwintergarden &middot; ").Append(Sicher(anlage.Name)).Append("</title>");
+
+        // Das Symbol im Reiter: dieselbe gelbe Sonne wie auf der EXE, nur als
+        // SVG statt als .ico. Eingebettet und nicht nachgeladen - sonst
+        // fehlte es genau dort, wo der Wintergarten kein Internet hat, und
+        // der Browser fragte bei jedem Neuladen vergebens nach favicon.ico.
+        html.Append("<link rel=\"icon\" href=\"data:image/svg+xml,").Append(Sonnensymbol)
+            .Append("\">");
 
         // Kein Skript: was nicht da ist, kann nicht kaputtgehen, und auf einem
         // Tablet an der Wand reicht ein Neuladen.
@@ -58,6 +65,11 @@ public static class Webseite
                 .Append(neuladen.ToString(CultureInfo.InvariantCulture)).Append("\">");
         }
         html.Append("<style>").Append(Stil).Append("</style></head><body>");
+
+        html.Append("<div class=\"kopfzeile\">");
+        Bild(html, Sinnbilder.Sonne, 22);
+        html.Append("<span class=\"marke\">REGOwintergarden</span>");
+        html.Append("<span class=\"klein\">").Append(Sicher(anlage.Name)).Append("</span></div>");
 
         html.Append("<nav class=\"menue\">");
         foreach (var (ziel, name) in Seiten)
@@ -1240,6 +1252,28 @@ public static class Webseite
     /// Text, der in HTML gehoert, muss entschaerft werden. Ein Antriebsname
     /// darf ein spitzes Klammerzeichen enthalten, ohne die Seite zu zerlegen.
     /// </summary>
+    /// <summary>
+    /// Die gelbe Sonne als SVG fuer die Adresszeile - dieselbe wie auf der
+    /// EXE, mit demselben Verlauf und demselben Dunkelbraun.
+    ///
+    /// Als Datenadresse eingebettet und nicht nachgeladen: so fehlt sie auch
+    /// dann nicht, wenn der Wintergarten kein Internet hat, und der Browser
+    /// fragt nicht bei jedem Neuladen vergebens nach favicon.ico. Die
+    /// spitzen Klammern und das Rautezeichen muessen dafuer umschrieben sein
+    /// - sonst bricht die Datenadresse mitten im Attribut ab.
+    /// </summary>
+    public const string Sonnensymbol =
+        "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E"
+        + "%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E"
+        + "%3Cstop offset='0' stop-color='%23FFD84D'/%3E"
+        + "%3Cstop offset='1' stop-color='%23F09200'/%3E%3C/linearGradient%3E%3C/defs%3E"
+        + "%3Crect width='24' height='24' rx='5' fill='url(%23g)'/%3E"
+        + "%3Cg fill='none' stroke='%234A2C00' stroke-width='1.7' stroke-linecap='round'%3E"
+        + "%3Ccircle cx='12' cy='12' r='4.4'/%3E"
+        + "%3Cpath d='M12 3.4 L12 5.6 M12 18.4 L12 20.6 M3.4 12 L5.6 12 M18.4 12 L20.6 12"
+        + " M6 6 L7.6 7.6 M16.4 16.4 L18 18 M18 6 L16.4 7.6 M7.6 16.4 L6 18'/%3E"
+        + "%3C/g%3E%3C/svg%3E";
+
     public static string Sicher(string? text) => (text ?? "")
         .Replace("&", "&amp;", StringComparison.Ordinal)
         .Replace("<", "&lt;", StringComparison.Ordinal)
@@ -1288,6 +1322,9 @@ public static class Webseite
                border:1px solid var(--linie);border-radius:4px;cursor:pointer}
         button:active{background:var(--ruhe)}
         .fuss{margin-top:18px;font-size:11px;color:var(--blass)}
+        .kopfzeile{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+        .kopfzeile .sinnbild{color:#e0a100}
+        .marke{font-size:16px;font-weight:600;letter-spacing:.01em}
         .menue{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:14px;
                border-bottom:1px solid var(--linie)}
         .menue a{padding:9px 16px;text-decoration:none;color:var(--leise);font-size:14px;

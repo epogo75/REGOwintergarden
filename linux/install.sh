@@ -100,13 +100,22 @@ sagen "Programm liegt in $ZIEL"
 # Das Gegenstueck gleich mitlegen. Ein Einrichter, der keinen Weg zurueck
 # hinterlaesst, ist eine halbe Sache - und gesucht wird er genau dann, wenn
 # man am wenigsten Lust hat, ihn erst herunterzuladen.
-NEBENAN="$(dirname -- "$0")/uninstall.sh"
-if [ -f "$NEBENAN" ]; then
-  install -m 0755 "$NEBENAN" "$ZIEL/uninstall.sh"
-elif holen "https://raw.githubusercontent.com/$REPO/$ZWEIG/linux/uninstall.sh" "$TMP/uninstall.sh"; then
-  install -m 0755 "$TMP/uninstall.sh" "$ZIEL/uninstall.sh"
-else
-  warnen "uninstall.sh nicht gefunden - Entfernen steht im README."
+for helfer in uninstall update; do
+  NEBENAN="$(dirname -- "$0")/$helfer.sh"
+  if [ -f "$NEBENAN" ]; then
+    install -m 0755 "$NEBENAN" "$ZIEL/$helfer.sh"
+  elif holen "https://raw.githubusercontent.com/$REPO/$ZWEIG/linux/$helfer.sh" "$TMP/$helfer.sh"; then
+    install -m 0755 "$TMP/$helfer.sh" "$ZIEL/$helfer.sh"
+  else
+    warnen "$helfer.sh nicht gefunden - steht im README."
+    continue
+  fi
+done
+
+# Das Aktualisieren gehoert in den Pfad: wer es braucht, weiss selten noch,
+# in welchem Ordner das Programm liegt.
+if [ -f "$ZIEL/update.sh" ] && [ -d /usr/local/bin ]; then
+  ln -sf "$ZIEL/update.sh" /usr/local/bin/regowintergarden-update.sh
 fi
 
 # ---- 3. Benutzer und Einstellungen ---------------------------------------
@@ -169,6 +178,7 @@ cat <<EOF
   Einstellungen:   $DATEN/einstellungen.json
   Protokoll:       journalctl -u $DIENST -f
   Anhalten:        systemctl stop $DIENST
+  Aktualisieren:   sudo regowintergarden-update.sh
   Entfernen:       $ZIEL/uninstall.sh
 
   Als Naechstes das KNX-Gateway und die Gruppenadressen eintragen:

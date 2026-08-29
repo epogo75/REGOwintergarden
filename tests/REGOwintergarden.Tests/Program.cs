@@ -980,7 +980,23 @@ public static class Program
             Check.Das(inhalt.Contains("href=\"/automatik\"", StringComparison.Ordinal),
                 name + " fuehrt zur Automatik");
             Check.Das(inhalt.Contains("</html>", StringComparison.Ordinal), name + " ist vollstaendig");
+            Check.Das(inhalt.Contains("<title>REGOwintergarden", StringComparison.Ordinal),
+                name + " heisst im Reiter REGOwintergarden");
+            Check.Das(inhalt.Contains("class=\"marke\">REGOwintergarden", StringComparison.Ordinal),
+                name + " traegt den Namen auch in der Kopfzeile");
+            Check.Das(inhalt.Contains("rel=\"icon\"", StringComparison.Ordinal),
+                name + " hat das Sonnensymbol im Reiter");
         }
+
+        // Die Datenadresse des Symbols darf keine rohen spitzen Klammern und
+        // kein rohes Rautezeichen enthalten - sonst bricht sie mitten im
+        // Attribut ab, und im Reiter steht wieder das leere Blatt.
+        Check.Das(!REGOwintergarden.Web.Webseite.Sonnensymbol.Contains('<'),
+            "das Sonnensymbol kommt ohne spitze Klammern aus");
+        Check.Das(!REGOwintergarden.Web.Webseite.Sonnensymbol.Contains('#'),
+            "und ohne Rautezeichen");
+        Check.Das(!REGOwintergarden.Web.Webseite.Sonnensymbol.Contains('"'),
+            "und ohne Anfuehrungszeichen");
 
         // Die Sinnbilder sind dieselben Striche wie im Fenster - moeglich,
         // weil WPF seine Pfadsyntax von SVG hat. Geprueft wird, dass die

@@ -391,8 +391,15 @@ auch dann, wenn am Wintergarten kein Internet liegt.
 ```sh
 journalctl -u regowintergarden -f      # zusehen
 systemctl restart regowintergarden     # nach Änderungen an der Einstellung
+sudo regowintergarden-update.sh        # auf den neuesten Stand bringen
 /opt/regowintergarden/uninstall.sh     # wieder entfernen
 ```
+
+`regowintergarden-update.sh` macht die vier Schritte, die man sonst von Hand
+tippt: Quelltext holen, bauen, austauschen, Dienst neu starten — und danach
+nachsehen, ob er auch wieder antwortet. Gebaut statt heruntergeladen, weil das
+Verzeichnis privat ist und ein Bauen aus dem Quelltext kein Lesezeichen
+braucht; fehlt das .NET SDK, holt das Skript es einmalig nach `/opt/dotnet`.
 
 Das Entfernen lässt die Einstellungen stehen. Ein Skript, das beim
 Deinstallieren ungefragt die Anlagendaten mitnimmt, hat schon manchen Abend
