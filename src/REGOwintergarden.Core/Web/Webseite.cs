@@ -121,12 +121,18 @@ public static class Webseite
 
         // ---- Wetterleuchten ----
         html.Append("<div class=\"reihe\">");
-        Leuchte(html, "Wind", Windtext(anlage, wetter, jetzt, out var windAlarm), windAlarm);
-        Leuchte(html, "Regen", Regentext(anlage, wetter, jetzt, out var nass), nass);
-        Leuchte(html, "draussen", Grad(wetter.Aussen, anlage.HoechstalterTemperatur, jetzt), false);
-        Leuchte(html, "drinnen", Grad(wetter.Innen, anlage.HoechstalterTemperatur, jetzt), false);
-        Leuchte(html, "Helligkeit", Lux(wetter.HellsteRichtung(), anlage.HoechstalterHelligkeit, jetzt), false);
-        Leuchte(html, "an die Aktoren", Ausgabetext(anlage, dienst), dienst.Sicherheitslage.Alarm);
+        Leuchte(html, "Wind", Windtext(anlage, wetter, jetzt, out var windAlarm), windAlarm,
+            Sinnbilder.Wind);
+        Leuchte(html, "Regen", Regentext(anlage, wetter, jetzt, out var nass), nass,
+            Sinnbilder.Regen);
+        Leuchte(html, "draussen", Grad(wetter.Aussen, anlage.HoechstalterTemperatur, jetzt), false,
+            Sinnbilder.Thermometer);
+        Leuchte(html, "drinnen", Grad(wetter.Innen, anlage.HoechstalterTemperatur, jetzt), false,
+            Sinnbilder.Haus);
+        Leuchte(html, "Helligkeit", Lux(wetter.HellsteRichtung(), anlage.HoechstalterHelligkeit, jetzt),
+            false, Sinnbilder.Sonne);
+        Leuchte(html, "an die Aktoren", Ausgabetext(anlage, dienst), dienst.Sicherheitslage.Alarm,
+            Sinnbilder.Warnung);
         html.Append("</div>");
 
         // ---- Sonne und Antriebe ----
@@ -200,41 +206,41 @@ public static class Webseite
         Regelkarte(html, "hauptschalter", "Automatik", anlage.AutomatikAktiv,
             "Der Hauptschalter. Aus heisst: nichts f&auml;hrt von selbst - ausser dem Wind- und "
             + "Regenschutz, der geht auch dann hinaus.",
-            anlage.AutomatikAktiv ? "l&auml;uft" : "steht");
+            anlage.AutomatikAktiv ? "l&auml;uft" : "steht", Sinnbilder.Haus);
 
         Regelkarte(html, "wind", "Windschutz", anlage.WindschutzAktiv,
             "F&auml;hrt Markisen ein und Fenster zu, sobald die Station Windalarm meldet oder die "
             + "Grenze &uuml;berschritten ist. Danach l&auml;uft der Schutz noch "
             + Zahl(anlage.WindNachlaufMinuten) + " Minuten nach.",
-            Wirkt(lagen, Stufe.Wind));
+            Wirkt(lagen, Stufe.Wind), Sinnbilder.Wind);
 
         Regelkarte(html, "regen", "Regenschutz", anlage.RegenschutzAktiv,
             "Dasselbe bei Regen - f&uuml;r alles, was Regenschutz eingetragen hat. Nachlauf "
             + Zahl(anlage.RegenNachlaufMinuten) + " Minuten.",
-            Wirkt(lagen, Stufe.Regen));
+            Wirkt(lagen, Stufe.Regen), Sinnbilder.Regen);
 
         Regelkarte(html, "frost", "Frostschutz", anlage.FrostschutzAktiv,
             "Unter der Frostgrenze bleibt die Markise eingefahren. Eine vereiste Markise "
             + "auszufahren kostet das Tuch.",
-            Wirkt(lagen, Stufe.Frost));
+            Wirkt(lagen, Stufe.Frost), Sinnbilder.Frost);
 
         Regelkarte(html, "beschattung", "Beschattung", anlage.BeschattungAktiv,
             "Beschattet, wenn die Sonne auf der Fl&auml;che steht und es heller ist als "
             + Zahl(anlage.Helligkeitsschwelle) + " Lux - nach "
             + Zahl(anlage.EinschaltverzoegerungMinuten) + " Minuten, damit eine einzelne Wolke "
             + "nichts ausl&ouml;st.",
-            Wirkt(lagen, Stufe.Beschattung));
+            Wirkt(lagen, Stufe.Beschattung), Sinnbilder.Sonne);
 
         Regelkarte(html, "lueftung", "L&uuml;ftung", anlage.LueftungAktiv,
             "&Ouml;ffnet die Fenster ab " + Zahl(anlage.LueftungAb) + " Grad drinnen, solange es "
             + "draussen mindestens " + Zahl(anlage.LueftungUnterschied) + " Grad k&uuml;hler ist. "
             + "W&auml;re es draussen w&auml;rmer, brächte L&uuml;ften nur mehr Hitze herein.",
-            Wirkt(lagen, Stufe.Lueftung));
+            Wirkt(lagen, Stufe.Lueftung), Sinnbilder.Fenster);
 
         Regelkarte(html, "uhr", "Zeitschaltuhr", anlage.ZeitschaltuhrAktiv,
             anlage.Schaltzeiten.Count.ToString(CultureInfo.InvariantCulture)
             + " Schaltzeiten, feste und solche mit Bezug auf Sonnenauf- und -untergang.",
-            Wirkt(lagen, Stufe.Zeit));
+            Wirkt(lagen, Stufe.Zeit), Sinnbilder.Uhr);
 
         Regelkarte(html, "waermegewinn", "W&auml;rmegewinn", anlage.WaermegewinnAktiv,
             "An kalten Tagen wird nicht beschattet, solange es drinnen k&uuml;hl ist: unter "
@@ -242,25 +248,27 @@ public static class Webseite
             + Zahl(anlage.WaermegewinnInnen) + " Grad drinnen. Ein Wintergarten ist im Winter "
             + "eine Heizung - wer im Januar die Markise ausf&auml;hrt, wirft die einzige "
             + "kostenlose W&auml;rme des Tages weg.",
-            anlage.WaermegewinnAktiv ? "wacht mit" : "aus");
+            anlage.WaermegewinnAktiv ? "wacht mit" : "aus", Sinnbilder.Thermometer);
 
         Regelkarte(html, "hitzevorsorge", "Hitzevorsorge", anlage.HitzevorsorgeAktiv,
             "Sagt die Vorhersage &uuml;ber " + Zahl(anlage.HitzevorsorgeAb) + " Grad an, wird "
             + "fr&uuml;her beschattet. Wer erst beschattet, wenn es drinnen warm ist, kommt zu "
             + "sp&auml;t - die W&auml;rme steckt dann in Boden und M&ouml;beln.",
-            anlage.Vorhersage is null ? "keine Vorhersage da" : Sicher(anlage.Vorhersage.ToString()));
+            anlage.Vorhersage is null ? "keine Vorhersage da" : Sicher(anlage.Vorhersage.ToString()),
+            Sinnbilder.Sonne);
 
         Regelkarte(html, "nachtauskuehlung", "Nachtausk&uuml;hlung", anlage.NachtauskuehlungAktiv,
             "Nach einem Tag &uuml;ber " + Zahl(anlage.NachtauskuehlungAb) + " Grad werden die "
             + "Fenster nachts ge&ouml;ffnet, bis drinnen " + Zahl(anlage.NachtauskuehlungZiel)
             + " Grad erreicht sind. Die wirksamste K&uuml;hlung, die ein Wintergarten hat - und "
             + "sie kostet nichts.",
-            anlage.NachtauskuehlungAktiv ? "wacht mit" : "aus");
+            anlage.NachtauskuehlungAktiv ? "wacht mit" : "aus", Sinnbilder.Fenster);
 
         Regelkarte(html, "vorhersage", "Wettervorhersage", anlage.VorhersageAktiv,
             "Holt zweimal je Stunde die Vorhersage f&uuml;r " + Sicher(anlage.Ort)
             + " von Open-Meteo. Ohne Schl&uuml;ssel, ohne Anmeldung.",
-            anlage.Vorhersage is null ? "noch nichts geholt" : Sicher(anlage.Vorhersage.ToString()));
+            anlage.Vorhersage is null ? "noch nichts geholt" : Sicher(anlage.Vorhersage.ToString()),
+            Sinnbilder.Wolke);
         html.Append("</div>");
 
         Fuss(html, "Stand " + jetzt.ToString("HH:mm:ss", CultureInfo.InvariantCulture));
@@ -329,10 +337,12 @@ public static class Webseite
     }
 
     private static void Regelkarte(StringBuilder html, string schluessel, string name, bool an,
-        string erklaerung, string tut)
+        string erklaerung, string tut, string sinnbild)
     {
         html.Append("<div class=\"kachel regel").Append(an ? "" : " aus").Append("\">");
-        html.Append("<div class=\"name\">").Append(name).Append("</div>");
+        html.Append("<div class=\"kopf\">");
+        Bild(html, sinnbild, 24);
+        html.Append("<div class=\"name\">").Append(name).Append("</div></div>");
         html.Append("<p class=\"klein\">").Append(erklaerung).Append("</p>");
         html.Append("<p class=\"tut\">").Append(tut).Append("</p>");
         html.Append("<form method=\"post\" action=\"/schalten\">");
@@ -406,7 +416,9 @@ public static class Webseite
                 html.Append("<tr><td class=\"klein\">")
                     .Append(e.Zeit.ToString("dd.MM. HH:mm", CultureInfo.InvariantCulture))
                     .Append("</td><td>").Append(Sicher(e.Antrieb))
-                    .Append("</td><td class=\"klein\">").Append(Sicher(Stufentext(e.Stufe)))
+                    .Append("</td><td class=\"klein ").Append(Klasse(e.Stufe)).Append("\">");
+                Bild(html, Sinnbilder.FuerStufe(e.Stufe), 16);
+                html.Append(' ').Append(Sicher(Stufentext(e.Stufe)))
                     .Append("</td><td class=\"klein\">").Append(Sicher(e.Grund))
                     .Append("</td></tr>");
             }
@@ -510,95 +522,460 @@ public static class Webseite
     // ===================================================================
 
     /// <summary>
-    /// Die Seite fuer den Errichter: Anschluss, Standort, Grenzen, Antriebe.
-    ///
-    /// Geaendert wird hier, was sich mit einer Zahl aendern laesst. Antriebe
-    /// anzulegen und Gruppenadressen einzutragen bleibt beim Windows-Fenster
-    /// oder in der einstellungen.json - dafuer waere ein Formular im Browser
-    /// das schlechtere Werkzeug.
+    /// Die Unterseiten der Konfiguration - dieselbe Aufteilung wie die Reiter
+    /// im Fenster. Anlage, Antriebe, Zeiten, Anschluss und Protokoll sind
+    /// fuenf verschiedene Fragen; sie auf eine Seite zu legen hiesse, die
+    /// Anlagenwerte hinter dreissig Adressfeldern zu verstecken.
+    /// </summary>
+    private static readonly (string Pfad, string Name)[] Unterseiten =
+    {
+        ("/konfig", "Anlage"),
+        ("/konfig/antriebe", "Antriebe"),
+        ("/konfig/zeiten", "Schaltzeiten"),
+        ("/konfig/anschluss", "Anschluss"),
+        ("/konfig/protokoll", "Protokoll"),
+    };
+
+    private static void Unternavigation(StringBuilder html, string pfad, string meldung)
+    {
+        html.Append("<nav class=\"untermenue\">");
+        foreach (var (ziel, name) in Unterseiten)
+        {
+            html.Append("<a href=\"").Append(ziel).Append('"');
+            if (string.Equals(ziel, pfad, StringComparison.Ordinal)) html.Append(" class=\"hier\"");
+            html.Append('>').Append(name).Append("</a>");
+        }
+        html.Append("</nav>");
+        if (meldung.Length > 0)
+        {
+            html.Append("<p class=\"gut\">").Append(Sicher(meldung)).Append("</p>");
+        }
+    }
+
+    private static void Konfigkopf(StringBuilder html, Wintergartendienst dienst, string pfad,
+        string titel, string meldung)
+    {
+        var anlage = dienst.Anlage;
+        Rahmen(html, anlage, "/konfig", 0);
+
+        html.Append("<div class=\"band ruhig\"><h1>").Append(titel).Append("</h1>");
+        html.Append("<p class=\"klein\">").Append(Sicher(anlage.Name)).Append(" in ")
+            .Append(Sicher(anlage.Ort)).Append(" &middot; ")
+            .Append(anlage.Motoren.Count.ToString(CultureInfo.InvariantCulture))
+            .Append(" Antriebe &middot; ")
+            .Append(anlage.Schaltzeiten.Count.ToString(CultureInfo.InvariantCulture))
+            .Append(" Schaltzeiten &middot; ").Append(dienst.Stand == Busstand.Verbunden
+                ? "mit dem Bus verbunden"
+                : "keine Busverbindung").Append("</p></div>");
+
+        Unternavigation(html, pfad, meldung);
+    }
+
+    /// <summary>
+    /// Standort, Adressen der Wetterstation, Ausgabe an die Aktoren und alle
+    /// Grenzen - dieselben Felder wie auf der Anlageseite im Fenster.
     /// </summary>
     public static string Konfigseite(Wintergartendienst dienst, DateTime jetzt, string meldung)
     {
         var anlage = dienst.Anlage;
 
         var html = new StringBuilder();
-        Rahmen(html, anlage, "/konfig", 0);
+        Konfigkopf(html, dienst, "/konfig", "Anlage", meldung);
 
-        html.Append("<div class=\"band ruhig\"><h1>Konfiguration</h1>");
-        html.Append("<p>Anlage <b>").Append(Sicher(anlage.Name)).Append("</b> in ")
-            .Append(Sicher(anlage.Ort)).Append(" &middot; ")
-            .Append(anlage.Motoren.Count.ToString(CultureInfo.InvariantCulture))
-            .Append(" Antriebe &middot; ").Append(dienst.Stand == Busstand.Verbunden
-                ? "mit dem Bus verbunden"
-                : "keine Busverbindung").Append("</p>");
-        if (meldung.Length > 0) html.Append("<p class=\"gut\">").Append(Sicher(meldung)).Append("</p>");
-        html.Append("</div>");
+        html.Append("<form method=\"post\" action=\"/einstellen\"><div class=\"spalten\">");
 
-        html.Append("<div class=\"spalten\"><div class=\"rechts\">");
-        html.Append("<h2>Grenzen und Zeiten</h2><div class=\"karte\">");
-        html.Append("<form method=\"post\" action=\"/einstellen\"><table class=\"felder\">");
-        Feld(html, "helligkeit", "Beschatten ab", anlage.Helligkeitsschwelle, "Lux");
-        Feld(html, "ein", "Einschaltverz&ouml;gerung", anlage.EinschaltverzoegerungMinuten, "min");
-        Feld(html, "aus", "Ausschaltverz&ouml;gerung", anlage.AusschaltverzoegerungMinuten, "min");
-        Feld(html, "lueftungab", "L&uuml;ften ab drinnen", anlage.LueftungAb, "&deg;C");
-        Feld(html, "lueftungspos", "L&uuml;ftungsposition", anlage.Lueftungsposition, "%");
-        Feld(html, "windausgabe", "Windgrenze f&uuml;r die Ausgabe", anlage.WindgrenzeAusgabe, "m/s");
-        Feld(html, "ausgabetakt", "Ausgabetakt an die Aktoren", anlage.AusgabetaktSekunden, "s");
+        // ---- linke Spalte: Standort und Station ----
+        html.Append("<div class=\"halb\">");
+        html.Append("<h2>Standort</h2><div class=\"karte\"><table class=\"felder\">");
+        Text(html, "name", "Name", anlage.Name, "");
+        Text(html, "ort", "Ort", anlage.Ort, "");
+        Feld(html, "breite", "Breite", anlage.Breite, "&deg; Nord");
+        Feld(html, "laenge", "L&auml;nge", anlage.Laenge, "&deg; Ost");
+        html.Append("</table><p class=\"klein\">Breite n&ouml;rdlich positiv, L&auml;nge &ouml;stlich "
+                    + "positiv - etwa 48,70 und 8,14 f&uuml;r B&uuml;hl. Daraus rechnet das Programm "
+                    + "Sonnenstand, Auf- und Untergang. Meldet die Station Azimut und Elevation, "
+                    + "gelten deren Werte; Auf- und Untergang kommen in jedem Fall aus dieser "
+                    + "Rechnung - die meldet keine Station.</p>");
+        html.Append("<p class=\"klein\">Gerade: ").Append(Sicher(dienst.Sonnenquelle)).Append(", ")
+            .Append(Sicher(dienst.Sonne.ToString())).Append("</p></div>");
+
+        html.Append("<h2>Wetterstation</h2><div class=\"karte\"><table class=\"felder\">");
+        Text(html, "adr_windalarm", "Windalarm", anlage.AdresseWindalarm, "1.001");
+        Text(html, "adr_wind", "Wind m/s", anlage.AdresseWind, "9.005");
+        Text(html, "adr_regen", "Regen", anlage.AdresseRegen, "1.001");
+        Text(html, "adr_aussen", "draussen", anlage.AdresseAussen, "9.001");
+        Text(html, "adr_innen", "drinnen", anlage.AdresseInnen, "9.001");
+        Text(html, "adr_ost", "hell Ost", anlage.AdresseHellOst, "9.004");
+        Text(html, "adr_sued", "hell S&uuml;d", anlage.AdresseHellSued, "9.004");
+        Text(html, "adr_west", "hell West", anlage.AdresseHellWest, "9.004");
+        Text(html, "adr_azimut", "Azimut", anlage.AdresseAzimut, "14.007");
+        Text(html, "adr_elevation", "Elevation", anlage.AdresseElevation, "14.007");
+        html.Append("</table><p class=\"klein\">Regen und Windalarm kommen als fertige Bits von der "
+                    + "Station - dort l&auml;uft die &Uuml;berwachung mit B&ouml;enerkennung, Grenze "
+                    + "und Nachlauf. Dieses Programm wertet das Ergebnis aus, statt daneben einen "
+                    + "zweiten W&auml;chter mit anderen Grenzen zu bauen. Azimut und Elevation sind "
+                    + "freiwillig - ohne sie rechnet das Programm sie selbst.</p></div>");
+
+        html.Append("<h2>Sicherheitssignal an die Aktoren</h2><div class=\"karte\">");
+        html.Append("<p class=\"klein\">Dieses Programm ist der Chef f&uuml;r Wind und Regen: es "
+                    + "h&ouml;rt die Station ab, bildet ein Urteil und meldet es zyklisch an die "
+                    + "Aktoren - auf eigenen Adressen. So &uuml;berwacht jede Stufe die vorige. "
+                    + "F&auml;llt die Station aus, merkt es dieses Programm. F&auml;llt dieses "
+                    + "Programm aus, bleibt die Wiederholung aus, und die Aktoren fahren von selbst "
+                    + "in Sicherheit.</p><table class=\"felder\">");
+        Text(html, "adr_windaus", "Wind an Aktoren", anlage.AdresseWindausgabe, "1.001");
+        Text(html, "adr_regenaus", "Regen an Aktoren", anlage.AdresseRegenausgabe, "1.001");
+        Feld(html, "ausgabetakt", "Wiederholung", anlage.AusgabetaktSekunden, "s");
+        Feld(html, "windausgabe", "Alarm ab", anlage.WindgrenzeAusgabe, "m/s");
+        Haken(html, "invertiert", "Signal invertiert senden", anlage.AusgabeInvertiert);
+        html.Append("</table><p class=\"klein\">Die Wiederholung deutlich k&uuml;rzer als die "
+                    + "&Uuml;berwachungszeit in den Aktoren - sonst l&ouml;st deren &Uuml;berwachung "
+                    + "aus, obwohl alles l&auml;uft. Ein Drittel bis ein Viertel ist die Faustregel: "
+                    + "bei 60 Sekunden Wiederholung also drei bis vier Minuten &Uuml;berwachung."
+                    + "</p></div></div>");
+
+        // ---- rechte Spalte: Grenzen ----
+        html.Append("<div class=\"halb\">");
+        html.Append("<h2>Beschattung</h2><div class=\"karte\"><table class=\"felder\">");
+        Feld(html, "helligkeit", "ab Helligkeit", anlage.Helligkeitsschwelle, "Lux");
+        Feld(html, "ein", "Verz&ouml;gerung ein", anlage.EinschaltverzoegerungMinuten, "min");
+        Feld(html, "aus", "Verz&ouml;gerung aus", anlage.AusschaltverzoegerungMinuten, "min");
+        Feld(html, "innenwarm", "drinnen warm ab", anlage.InnenWarm, "&deg;C");
+        Feld(html, "warmfaktor", "Faktor dann", anlage.WarmFaktor, "");
+        html.Append("</table><p class=\"klein\">Das Ausschalten dauert l&auml;nger als das "
+                    + "Einschalten, und das mit Absicht: eine einzelne Wolke soll die Markise nicht "
+                    + "ein- und wieder ausfahren. Jede Fahrt kostet Mechanik. Ist es drinnen bereits "
+                    + "warm, sinkt die Schwelle auf den Faktor - 0,7 heisst dreissig Prozent "
+                    + "fr&uuml;her beschatten.</p></div>");
+
+        html.Append("<h2>L&uuml;ften</h2><div class=\"karte\"><table class=\"felder\">");
+        Feld(html, "lueftungab", "ab drinnen", anlage.LueftungAb, "&deg;C");
+        Feld(html, "lueftunghyst", "Hysterese", anlage.LueftungHysterese, "K");
+        Feld(html, "lueftungdelta", "draussen k&uuml;hler", anlage.LueftungUnterschied, "K");
+        Feld(html, "lueftungspos", "Fenster auf", anlage.Lueftungsposition, "%");
+        html.Append("</table><p class=\"klein\">Gel&uuml;ftet wird nur, wenn es draussen wirklich "
+                    + "k&uuml;hler ist - sonst holt das offene Fenster die W&auml;rme herein, statt "
+                    + "sie hinauszulassen.</p></div>");
+
+        html.Append("<h2>Klug mitdenken</h2><div class=\"karte\"><table class=\"felder\">");
+        Feld(html, "waermeaussen", "W&auml;rmegewinn: draussen unter", anlage.WaermegewinnAussen, "&deg;C");
+        Feld(html, "waermeinnen", "und drinnen unter", anlage.WaermegewinnInnen, "&deg;C");
+        Feld(html, "hitzeab", "Hitzevorsorge ab Vorhersage", anlage.HitzevorsorgeAb, "&deg;C");
+        Feld(html, "nachtab", "Nachtausk&uuml;hlung ab Tagesh&ouml;chstwert", anlage.NachtauskuehlungAb, "&deg;C");
+        Feld(html, "nachtziel", "Nachtausk&uuml;hlung bis drinnen", anlage.NachtauskuehlungZiel, "&deg;C");
+        html.Append("</table><p class=\"klein\">Ein- und ausgeschaltet werden diese drei Regeln auf "
+                    + "der Seite Automatik - hier stehen ihre Grenzen.</p></div>");
+
+        html.Append("<h2>Schutz und Zeiten</h2><div class=\"karte\"><table class=\"felder\">");
+        Feld(html, "windnachlauf", "Wind Nachlauf", anlage.WindNachlaufMinuten, "min");
+        Feld(html, "regennachlauf", "Regen Nachlauf", anlage.RegenNachlaufMinuten, "min");
         Feld(html, "handsperre", "Handsperre", anlage.HandsperreMinuten, "min");
+        Feld(html, "alterwind", "Wind h&ouml;chstens", anlage.HoechstalterWindMinuten, "min");
+        Feld(html, "alterregen", "Regen h&ouml;chstens", anlage.HoechstalterRegenMinuten, "min");
+        Feld(html, "altertemp", "Temperatur h&ouml;chstens", anlage.HoechstalterTemperaturMinuten, "min");
+        Feld(html, "alterhell", "Helligkeit h&ouml;chstens", anlage.HoechstalterHelligkeitMinuten, "min");
         Feld(html, "takt", "Rechentakt", anlage.TaktSekunden, "s");
-        html.Append("</table><button type=\"submit\">&Uuml;bernehmen</button></form>");
-        html.Append("<p class=\"klein\">Gespeichert wird sofort in die einstellungen.json. "
-                    + "Ein Neustart des Dienstes ist nicht n&ouml;tig.</p></div>");
+        Feld(html, "pause", "Mindestpause je Antrieb", anlage.MindestpauseSekunden, "s");
+        html.Append("</table><p class=\"klein\">„Wind h&ouml;chstens\" ist das Alter, bis zu dem ein "
+                    + "Windwert gilt: kommt l&auml;nger nichts, f&auml;hrt die Anlage in Sicherheit. "
+                    + "Ein stiller Windmesser ist keine Windstille.</p></div></div>");
 
-        html.Append("<h2>Antriebe</h2><div class=\"karte\"><table class=\"liste\">");
-        html.Append("<tr><th>Name</th><th>Art</th><th>Richtung</th><th>Fahren</th>"
-                    + "<th>Position</th><th>R&uuml;ckmeldung</th></tr>");
-        foreach (var motor in anlage.Motoren)
+        html.Append("</div><div class=\"karte\"><button type=\"submit\">&Uuml;bernehmen</button>");
+        html.Append("<p class=\"klein\">Gespeichert wird sofort in die einstellungen.json - "
+                    + "ein Neustart des Dienstes ist nicht n&ouml;tig.</p></div></form>");
+
+        Fuss(html, "");
+        return html.ToString();
+    }
+
+    /// <summary>Alle Antriebe auf einen Blick, jeder anklickbar.</summary>
+    public static string Antriebsliste(Wintergartendienst dienst, DateTime jetzt, string meldung)
+    {
+        var html = new StringBuilder();
+        Konfigkopf(html, dienst, "/konfig/antriebe", "Antriebe", meldung);
+
+        html.Append("<div class=\"karte\"><table class=\"liste\">");
+        html.Append("<tr><th>Name</th><th>Art</th><th>Richtung</th><th>Wind</th><th>Fahren</th>"
+                    + "<th>Position</th><th>R&uuml;ckmeldung</th><th>Lamelle</th><th></th></tr>");
+        foreach (var motor in dienst.Anlage.Motoren)
         {
-            html.Append("<tr><td>").Append(Sicher(motor.Name))
+            html.Append("<tr><td><a href=\"/konfig/antrieb?id=").Append(Sicher(motor.Id))
+                .Append("\">").Append(Sicher(motor.Name)).Append("</a>")
                 .Append("</td><td class=\"klein\">").Append(Sicher(motor.Art.ToString()))
                 .Append("</td><td class=\"klein\">").Append(Sicher(Motor.Richtungsname(motor.Ausrichtung)))
                 .Append(' ').Append(Zahl(motor.Ausrichtung)).Append("&deg;")
+                .Append("</td><td class=\"klein\">").Append(Zahl(motor.Windgrenze)).Append(" m/s")
                 .Append("</td><td class=\"klein\">").Append(Adresse(motor.AdresseFahren))
                 .Append("</td><td class=\"klein\">").Append(Adresse(motor.AdressePosition))
                 .Append("</td><td class=\"klein\">").Append(Adresse(motor.AdressePositionStatus))
-                .Append("</td></tr>");
-        }
-        html.Append("</table></div></div>");
-
-        html.Append("<div class=\"links\"><h2>Anschluss</h2><div class=\"karte\">");
-        Zeile(html, "Gateway", Adresse(dienst.Einstellungen.Gateway));
-        Zeile(html, "Standort", Sicher(anlage.Ort) + " &middot; " + Zahl(anlage.Breite) + " / "
-                                + Zahl(anlage.Laenge));
-        Zeile(html, "Sonne", Sicher(dienst.Sonnenquelle));
-        html.Append("</div>");
-
-        html.Append("<h2>Adressen der Station</h2><div class=\"karte\"><table class=\"liste\">");
-        foreach (var (name, adresse) in new[]
-                 {
-                     ("Windalarm", anlage.AdresseWindalarm), ("Windgeschwindigkeit", anlage.AdresseWind),
-                     ("Regen", anlage.AdresseRegen), ("draussen", anlage.AdresseAussen),
-                     ("drinnen", anlage.AdresseInnen), ("hell Ost", anlage.AdresseHellOst),
-                     ("hell S&uuml;d", anlage.AdresseHellSued), ("hell West", anlage.AdresseHellWest),
-                     ("Azimut", anlage.AdresseAzimut), ("Elevation", anlage.AdresseElevation),
-                 })
-        {
-            html.Append("<tr><td class=\"klein\">").Append(name).Append("</td><td class=\"klein\">")
-                .Append(Adresse(adresse)).Append("</td></tr>");
+                .Append("</td><td class=\"klein\">").Append(motor.HatLamelle
+                    ? Adresse(motor.AdresseLamelle)
+                    : "<i class=\"blass\">keine</i>")
+                .Append("</td><td class=\"klein\"><a href=\"/konfig/antrieb?id=")
+                .Append(Sicher(motor.Id)).Append("\">&auml;ndern</a></td></tr>");
         }
         html.Append("</table></div>");
+        html.Append("<p class=\"klein\">Antriebe anlegen und l&ouml;schen bleibt im Windows-Fenster: "
+                    + "eine Anlage baut man einmal auf, und ein Formular im Browser w&auml;re dabei "
+                    + "das schlechtere Werkzeug. Ge&auml;ndert wird hier alles.</p>");
+
+        Fuss(html, "");
+        return html.ToString();
+    }
+
+    /// <summary>Ein Antrieb mit allen Feldern - wie die Antriebsseite im Fenster.</summary>
+    public static string Antriebsformular(Wintergartendienst dienst, DateTime jetzt, string id,
+        string meldung)
+    {
+        var motor = dienst.Anlage.Finde(id);
+
+        var html = new StringBuilder();
+        Konfigkopf(html, dienst, "/konfig/antriebe",
+            motor is null ? "Antrieb" : Sicher(motor.Name), meldung);
+
+        if (motor is null)
+        {
+            html.Append("<div class=\"karte\"><p>Diesen Antrieb gibt es nicht (mehr). "
+                        + "<a href=\"/konfig/antriebe\">Zur&uuml;ck zur Liste</a></p></div>");
+            Fuss(html, "");
+            return html.ToString();
+        }
+
+        html.Append("<form method=\"post\" action=\"/antrieb\">");
+        html.Append("<input type=\"hidden\" name=\"id\" value=\"").Append(Sicher(motor.Id)).Append("\">");
+        html.Append("<div class=\"spalten\"><div class=\"halb\">");
+
+        html.Append("<h2>Antrieb</h2><div class=\"karte\"><table class=\"felder\">");
+        Text(html, "name", "Name", motor.Name, "");
+        html.Append("<tr><td>Art</td><td><select name=\"art\">");
+        foreach (Antriebsart art in Enum.GetValues(typeof(Antriebsart)))
+        {
+            html.Append("<option value=\"").Append(art.ToString()).Append('"')
+                .Append(art == motor.Art ? " selected" : "").Append('>').Append(art.ToString())
+                .Append("</option>");
+        }
+        html.Append("</select></td><td></td></tr>");
+        Feld(html, "ausrichtung", "Ausrichtung", motor.Ausrichtung,
+            "&deg; = " + Motor.Richtungsname(motor.Ausrichtung));
+        html.Append("</table><p class=\"klein\">0 ist Nord, 90 Ost, 180 S&uuml;d, 270 West. Frei "
+                    + "einstellbar - die Beschattung rechnet damit.</p></div>");
+
+        html.Append("<h2>Beschattung</h2><div class=\"karte\"><table class=\"felder\">");
+        Feld(html, "oeffnung", "&Ouml;ffnungswinkel", motor.Oeffnungswinkel, "&deg;");
+        Feld(html, "elevmin", "Sonne ab", motor.ElevationMin, "&deg;");
+        Feld(html, "elevmax", "Sonne bis", motor.ElevationMax, "&deg;");
+        Feld(html, "beschattung", "Beschattet auf", motor.Beschattungsposition, "%");
+        Feld(html, "lamelle", "Lamelle auf", motor.Lamellenposition, "%");
+        Feld(html, "frei", "Danach auf", motor.Freiposition, "%");
+        html.Append("</table><p class=\"klein\">Der &Ouml;ffnungswinkel sagt, wie weit die Sonne "
+                    + "seitlich stehen darf und noch auf die Fl&auml;che scheint - 90 w&auml;re "
+                    + "streifender Einfall. Unter „Sonne ab\" steht sie hinter Nachbarh&auml;usern, "
+                    + "&uuml;ber „Sonne bis\" scheint sie &uuml;ber die Fl&auml;che hinweg."
+                    + "</p></div></div>");
+
+        html.Append("<div class=\"halb\">");
+        html.Append("<h2>Schutz</h2><div class=\"karte\"><table class=\"felder\">");
+        Feld(html, "wind", "Windgrenze", motor.Windgrenze, "m/s");
+        Feld(html, "frost", "Frostgrenze", motor.Frostgrenze, "&deg;C");
+        Haken(html, "regenschutz", "Regenschutz", motor.Regenschutz);
+        html.Append("</table><p class=\"klein\">&Uuml;ber der Windgrenze f&auml;hrt der Antrieb in "
+                    + "Sicherheit - eine Markise ein, ein Fenster zu. Ein Rollladen hat keine sichere "
+                    + "Seite und bleibt stehen.</p></div>");
+
+        html.Append("<h2>Automatik</h2><div class=\"karte\"><table class=\"felder\">");
+        Haken(html, "beschattungaktiv", "Beschattung", motor.BeschattungAktiv);
+        Haken(html, "lueftungaktiv", "L&uuml;ftung", motor.LueftungAktiv);
+        Haken(html, "zeitaktiv", "Zeitschaltuhr", motor.ZeitAktiv);
+        html.Append("</table></div>");
+
+        html.Append("<h2>Gruppenadressen</h2><div class=\"karte\"><table class=\"felder\">");
+        Text(html, "adr_fahren", "Auf/Ab", motor.AdresseFahren, "1.008");
+        Text(html, "adr_stopp", "Stopp", motor.AdresseStopp, "1.007");
+        Text(html, "adr_position", "Position", motor.AdressePosition, "5.001");
+        Text(html, "adr_positionstatus", "Position R&uuml;ckm.", motor.AdressePositionStatus, "5.001");
+        Text(html, "adr_lamelle", "Lamelle", motor.AdresseLamelle, "5.001");
+        Text(html, "adr_lamellestatus", "Lamelle R&uuml;ckm.", motor.AdresseLamelleStatus, "5.001");
+        html.Append("</table></div></div></div>");
+
+        html.Append("<div class=\"karte\"><button type=\"submit\">&Uuml;bernehmen</button> ");
+        html.Append("<a class=\"klein\" href=\"/konfig/antriebe\">zur&uuml;ck zur Liste</a></div></form>");
+
+        Fuss(html, "");
+        return html.ToString();
+    }
+
+    /// <summary>Die Schaltzeiten - anlegen, aendern, loeschen.</summary>
+    public static string Zeitenseite(Wintergartendienst dienst, DateTime jetzt, string meldung)
+    {
+        var anlage = dienst.Anlage;
+
+        var html = new StringBuilder();
+        Konfigkopf(html, dienst, "/konfig/zeiten", "Schaltzeiten", meldung);
+
+        html.Append("<div class=\"karte\"><table class=\"liste\">");
+        html.Append("<tr><th>Zeit</th><th>Tage</th><th>Antrieb</th><th>auf</th><th>Bemerkung</th>"
+                    + "<th></th><th></th></tr>");
+        if (anlage.Schaltzeiten.Count == 0)
+        {
+            html.Append("<tr><td colspan=\"7\" class=\"klein\">Noch keine Schaltzeit eingetragen."
+                        + "</td></tr>");
+        }
+        foreach (var zeit in anlage.Schaltzeiten)
+        {
+            var motor = anlage.Finde(zeit.MotorId);
+            html.Append("<tr").Append(zeit.Aktiv ? "" : " class=\"aus\"").Append("><td>")
+                .Append(Sicher(zeit.Zeit))
+                .Append(zeit.Versatz == 0 ? "" : " " + (zeit.Versatz > 0 ? "+" : "")
+                                                    + zeit.Versatz.ToString(CultureInfo.InvariantCulture)
+                                                    + " min")
+                .Append("</td><td class=\"klein\">").Append(Sicher(zeit.Tagesnamen()))
+                .Append("</td><td class=\"klein\">")
+                .Append(motor is null ? "<i class=\"blass\">alle</i>" : Sicher(motor.Name))
+                .Append("</td><td class=\"klein\">").Append(Zahl(zeit.Position)).Append(" %")
+                .Append("</td><td class=\"klein\">").Append(Sicher(zeit.Bemerkung))
+                .Append("</td><td class=\"klein\"><form method=\"post\" action=\"/zeit\">")
+                .Append("<input type=\"hidden\" name=\"was\" value=\"schalten\">")
+                .Append("<input type=\"hidden\" name=\"id\" value=\"").Append(Sicher(zeit.Id))
+                .Append("\"><button type=\"submit\">").Append(zeit.Aktiv ? "aus" : "ein")
+                .Append("</button></form></td><td class=\"klein\">")
+                .Append("<form method=\"post\" action=\"/zeit\">")
+                .Append("<input type=\"hidden\" name=\"was\" value=\"loeschen\">")
+                .Append("<input type=\"hidden\" name=\"id\" value=\"").Append(Sicher(zeit.Id))
+                .Append("\"><button type=\"submit\">l&ouml;schen</button></form></td></tr>");
+        }
+        html.Append("</table></div>");
+
+        html.Append("<h2>Neue Schaltzeit</h2><div class=\"karte\">");
+        html.Append("<form method=\"post\" action=\"/zeit\">");
+        html.Append("<input type=\"hidden\" name=\"was\" value=\"neu\"><table class=\"felder\">");
+        Text(html, "zeit", "Zeit", "07:00", "hh:mm, oder Aufgang / Untergang");
+        Feld(html, "versatz", "Versatz", 0, "min");
+        Text(html, "tage", "Tage", "1234567", "1 = Montag");
+        html.Append("<tr><td>Antrieb</td><td><select name=\"motor\">");
+        html.Append("<option value=\"\">alle</option>");
+        foreach (var motor in anlage.Motoren)
+        {
+            html.Append("<option value=\"").Append(Sicher(motor.Id)).Append("\">")
+                .Append(Sicher(motor.Name)).Append("</option>");
+        }
+        html.Append("</select></td><td></td></tr>");
+        Feld(html, "position", "auf", 100, "%");
+        Text(html, "bemerkung", "Bemerkung", "", "");
+        html.Append("</table><button type=\"submit\">Anlegen</button></form>");
+        html.Append("<p class=\"klein\">„Aufgang\" und „Untergang\" beziehen sich auf die Sonne am "
+                    + "eingetragenen Standort; der Versatz verschiebt sie in Minuten. Bei den Tagen "
+                    + "steht jede Ziffer f&uuml;r einen Wochentag, 1 ist Montag.</p></div>");
+
+        Fuss(html, "");
+        return html.ToString();
+    }
+
+    /// <summary>Gateway, Fernbedienung, Ausgabe - was am Anschluss haengt.</summary>
+    public static string Anschlussseite(Wintergartendienst dienst, DateTime jetzt, string meldung)
+    {
+        var anlage = dienst.Anlage;
+
+        var html = new StringBuilder();
+        Konfigkopf(html, dienst, "/konfig/anschluss", "Anschluss", meldung);
+
+        html.Append("<div class=\"spalten\"><div class=\"halb\">");
+        html.Append("<h2>KNX-Bus</h2><div class=\"karte\">");
+        html.Append("<form method=\"post\" action=\"/anschluss\"><table class=\"felder\">");
+        Text(html, "gateway", "Gateway", dienst.Einstellungen.Gateway, "IP:Port");
+        html.Append("</table><button type=\"submit\">Verbinden</button></form>");
+        html.Append("<p class=\"klein\">Stand: ").Append(dienst.Stand switch
+        {
+            Busstand.Verbunden => "verbunden - Telegramme gehen hinaus und werden mitgeh&ouml;rt",
+            Busstand.Verbinde => "Verbindung wird aufgebaut",
+            Busstand.Fehler => "nicht verbunden, siehe Protokoll",
+            _ => "nicht verbunden - ohne Bus rechnet die Automatik zwar, f&auml;hrt aber nichts",
+        }).Append("</p>");
+        html.Append("<form method=\"post\" action=\"/abfragen\">"
+                    + "<button type=\"submit\">Zustand abfragen</button></form>");
+        html.Append("<p class=\"klein\">Fragt jede eingetragene Adresse einmal ab. Ein Bus "
+                    + "erz&auml;hlt seinen Zustand nicht von selbst - er meldet nur "
+                    + "&Auml;nderungen.</p></div>");
+
+        html.Append("<h2>Dienst</h2><div class=\"karte\">");
+        html.Append("<p>").Append(Sicher(Dienstzeile(dienst, jetzt))).Append("</p>");
+        html.Append("<p class=\"klein\">L&auml;uft seit ")
+            .Append(dienst.Gestartet.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture))
+            .Append(", also seit ").Append(Sicher(Dauer(jetzt - dienst.Gestartet)))
+            .Append(" &middot; Fassung ").Append(Sicher(Programmstand.Version))
+            .Append(" &middot; Rechentakt alle ").Append(Zahl(anlage.TaktSekunden))
+            .Append(" Sekunden</p></div></div>");
+
+        html.Append("<div class=\"halb\">");
+        html.Append("<h2>Zweite Oberfl&auml;che</h2><div class=\"karte\">");
+        html.Append("<p class=\"klein\">Das Windows-Fenster kann diesem Dienst zusehen und ihn "
+                    + "bedienen, statt selbst zu steuern. Dort unter Konfiguration &rarr; Wer steuert "
+                    + "auf „Ein anderer Rechner f&uuml;hrt\" stellen und die Adresse dieses "
+                    + "Rechners eintragen.</p>");
+        html.Append("<table class=\"liste\">");
+        html.Append("<tr><td class=\"klein\">/bus.json</td><td class=\"klein\">Rohwerte mit "
+                    + "Zeitstempel und die laufenden Handsperren</td></tr>");
+        html.Append("<tr><td class=\"klein\">/einstellungen.json</td><td class=\"klein\">die Anlage, "
+                    + "wie sie hier eingerichtet ist</td></tr>");
+        html.Append("<tr><td class=\"klein\">/lage.json</td><td class=\"klein\">der ausgewertete "
+                    + "Stand f&uuml;r eine Visualisierung</td></tr>");
+        html.Append("<tr><td class=\"klein\">/gesundheit</td><td class=\"klein\">eine Zeile, ob "
+                    + "gerechnet wird</td></tr>");
+        html.Append("</table><p class=\"klein\">Gesteuert wird trotzdem nur an einer Stelle: hier. "
+                    + "Zwei Automatiken auf denselben Adressen w&uuml;rden sich gegenseitig "
+                    + "&uuml;berfahren.</p></div>");
 
         html.Append("<h2>Ausgabe an die Aktoren</h2><div class=\"karte\"><table class=\"liste\">");
         html.Append("<tr><td class=\"klein\">Wind</td><td class=\"klein\">")
             .Append(Adresse(anlage.AdresseWindausgabe)).Append("</td></tr>");
         html.Append("<tr><td class=\"klein\">Regen</td><td class=\"klein\">")
             .Append(Adresse(anlage.AdresseRegenausgabe)).Append("</td></tr>");
-        html.Append("</table><p class=\"klein\">Zyklisch alle ").Append(Zahl(anlage.AusgabetaktSekunden))
-            .Append(" Sekunden - das ist das Lebenszeichen, an dem die Aktoren einen Ausfall "
-                    + "dieses Programms erkennen.</p></div></div></div>");
+        html.Append("<tr><td class=\"klein\">zuletzt gesendet</td><td class=\"klein\">")
+            .Append(dienst.LetzteAusgabe == DateTime.MinValue
+                ? "noch nie"
+                : Sicher(Dauer(jetzt - dienst.LetzteAusgabe)) + " her")
+            .Append("</td></tr></table><p class=\"klein\">Zyklisch alle ")
+            .Append(Zahl(anlage.AusgabetaktSekunden))
+            .Append(" Sekunden - das Lebenszeichen, an dem die Aktoren einen Ausfall dieses "
+                    + "Programms erkennen.</p></div></div></div>");
 
-        Fuss(html, "Antriebe anlegen und Gruppenadressen eintragen: im Windows-Fenster oder in "
-                   + "der einstellungen.json");
+        Fuss(html, "");
+        return html.ToString();
+    }
+
+    /// <summary>Das Protokoll - was das Programm zuletzt getan und gemeldet hat.</summary>
+    public static string Protokollseite(Wintergartendienst dienst, DateTime jetzt, string meldung)
+    {
+        var html = new StringBuilder();
+        Konfigkopf(html, dienst, "/konfig/protokoll", "Protokoll", meldung);
+
+        var zeilen = dienst.Protokoll;
+        html.Append("<div class=\"karte\">");
+        if (zeilen.Count == 0)
+        {
+            html.Append("<p class=\"klein\">Noch nichts gemeldet.</p>");
+        }
+        else
+        {
+            html.Append("<table class=\"liste\">");
+            for (var i = zeilen.Count - 1; i >= 0; i--)
+            {
+                var z = zeilen[i];
+                html.Append("<tr").Append(z.Problem ? " class=\"problem\"" : "")
+                    .Append("><td class=\"klein\">")
+                    .Append(z.Zeit.ToString("dd.MM. HH:mm:ss", CultureInfo.InvariantCulture))
+                    .Append("</td><td>").Append(Sicher(z.Was))
+                    .Append("</td><td class=\"klein\">").Append(Sicher(z.Dazu))
+                    .Append("</td></tr>");
+            }
+            html.Append("</table>");
+        }
+        html.Append("</div><p class=\"klein\">Die letzten ")
+            .Append(zeilen.Count.ToString(CultureInfo.InvariantCulture))
+            .Append(" Meldungen. Vollst&auml;ndig steht alles in der Protokolldatei neben der "
+                    + "einstellungen.json - und bei einem Dienst unter Linux zus&auml;tzlich im "
+                    + "journal: journalctl -u regowintergarden</p>");
+
+        Fuss(html, "");
         return html.ToString();
     }
 
@@ -611,18 +988,52 @@ public static class Webseite
             .Append("</td></tr>");
     }
 
-    private static void Zeile(StringBuilder html, string name, string wert) =>
-        html.Append("<p><span class=\"klein\">").Append(name).Append("</span><br>").Append(wert)
-            .Append("</p>");
+    private static void Text(StringBuilder html, string name, string beschriftung, string wert,
+        string dazu)
+    {
+        html.Append("<tr><td>").Append(beschriftung).Append("</td><td>");
+        html.Append("<input type=\"text\" name=\"").Append(name).Append("\" value=\"")
+            .Append(Sicher(wert)).Append("\"></td><td class=\"klein\">").Append(dazu)
+            .Append("</td></tr>");
+    }
+
+    /// <summary>
+    /// Ein Haken. Das versteckte Feld davor ist der Trick, den HTML braucht:
+    /// ein nicht angehakter Kasten wird gar nicht mitgeschickt, und ohne den
+    /// Vorgaenger liesse sich ein Haken nie wieder entfernen.
+    /// </summary>
+    private static void Haken(StringBuilder html, string name, string beschriftung, bool an)
+    {
+        html.Append("<tr><td>").Append(beschriftung).Append("</td><td>");
+        html.Append("<input type=\"hidden\" name=\"").Append(name).Append("\" value=\"0\">");
+        html.Append("<input type=\"checkbox\" name=\"").Append(name).Append("\" value=\"1\"")
+            .Append(an ? " checked" : "").Append("></td><td></td></tr>");
+    }
 
     private static string Adresse(string adresse) =>
         adresse.Trim().Length == 0 ? "<i class=\"blass\">nicht eingetragen</i>" : Sicher(adresse);
 
     // ---- Bausteine ---------------------------------------------------------
 
-    private static void Leuchte(StringBuilder html, string name, string wert, bool alarm)
+    /// <summary>
+    /// Ein Sinnbild als SVG - dieselben Striche wie im Fenster.
+    ///
+    /// Moeglich ist das, weil WPF seine Pfadsyntax von SVG uebernommen hat:
+    /// derselbe Text laesst sich hier wie dort zeichnen. Die Pfade stehen
+    /// deshalb im Kern und nicht in einer der beiden Oberflaechen.
+    /// </summary>
+    private static void Bild(StringBuilder html, string pfad, double groesse)
+    {
+        html.Append("<svg class=\"sinnbild\" viewBox=\"0 0 24 24\" width=\"")
+            .Append(Zahl(groesse)).Append("\" height=\"").Append(Zahl(groesse))
+            .Append("\"><path d=\"").Append(pfad).Append("\"/></svg>");
+    }
+
+    private static void Leuchte(StringBuilder html, string name, string wert, bool alarm,
+        string sinnbild)
     {
         html.Append("<div class=\"leuchte").Append(alarm ? " alarm" : "").Append("\">");
+        Bild(html, sinnbild, 26);
         html.Append("<div class=\"wert\">").Append(Sicher(wert)).Append("</div>");
         html.Append("<div class=\"klein\">").Append(Sicher(name)).Append("</div></div>");
     }
@@ -633,16 +1044,26 @@ public static class Webseite
         var stand = Position(dienst, motor);
 
         html.Append("<div class=\"kachel").Append(lage.Stufe >= Stufe.Frost ? " alarm" : "").Append("\">");
-        html.Append("<div class=\"name\">").Append(Sicher(motor.Name)).Append("</div>");
+
+        // Die Art als Sinnbild neben den Namen: eine Markise erkennt man so
+        // von weitem, ohne das Wort zu lesen.
+        html.Append("<div class=\"kopf\">");
+        Bild(html, Sinnbilder.FuerArt(motor.Art), 24);
+        html.Append("<div><div class=\"name\">").Append(Sicher(motor.Name)).Append("</div>");
         html.Append("<div class=\"klein\">").Append(Sicher(motor.Art.ToString())).Append(" &middot; ")
             .Append(Sicher(motor.Richtung)).Append(" ")
             .Append(Math.Round(motor.Ausrichtung).ToString("0", CultureInfo.InvariantCulture))
-            .Append("&deg;</div>");
+            .Append("&deg;</div></div></div>");
+
         html.Append("<div class=\"position\">")
             .Append(stand is null ? "&mdash;" : Math.Round(stand.Value).ToString("0", CultureInfo.InvariantCulture) + " %")
             .Append("</div>");
-        html.Append("<div class=\"grund ").Append(Klasse(lage.Stufe)).Append("\">")
-            .Append(Sicher(Stufentext(lage.Stufe) + lage.Grund)).Append("</div>");
+
+        // Und die wirksame Regel als Sinnbild vor dem Grund - warum der
+        // Antrieb steht, wo er steht.
+        html.Append("<div class=\"grund ").Append(Klasse(lage.Stufe)).Append("\">");
+        Bild(html, Sinnbilder.FuerStufe(lage.Stufe), 16);
+        html.Append(' ').Append(Sicher(Stufentext(lage.Stufe) + lage.Grund)).Append("</div>");
 
         // Die drei Knoepfe sind ein Formular - kein Skript, damit die Seite
         // auch in einem alten Tabletbrowser funktioniert.
@@ -882,6 +1303,27 @@ public static class Webseite
         .regel form{margin:8px 0 0}
         .gut{color:var(--gruen)}
         .stoerung{color:var(--rot);font-weight:600}
+        .untermenue{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 14px}
+        .untermenue a{font-size:13px;color:var(--leise);text-decoration:none;padding-bottom:3px;
+                      border-bottom:2px solid transparent}
+        .untermenue a:hover{color:var(--schrift)}
+        .untermenue a.hier{color:var(--schrift);font-weight:600;border-bottom-color:var(--gruen)}
+        .halb{flex:1 1 420px;min-width:320px}
+        select{padding:5px 7px;font-size:14px;border:1px solid var(--linie);border-radius:4px;
+               background:var(--flaeche);color:var(--schrift)}
+        .felder input[type=checkbox]{width:auto}
+        .liste tr.aus{opacity:.5}
+        .liste tr.problem td{color:var(--rot)}
+        .liste form{display:inline;margin:0}
+        .liste button{padding:3px 10px;font-size:12px;width:auto}
+        .liste a{color:var(--schrift)}
+        .sinnbild{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;
+                  stroke-linejoin:round;vertical-align:-.15em}
+        .leuchte .sinnbild{display:block;color:var(--leise);margin-bottom:6px}
+        .leuchte.alarm .sinnbild{color:var(--rot)}
+        .kopf{display:flex;gap:9px;align-items:flex-start;color:var(--leise)}
+        .kopf .name{color:var(--schrift)}
+        .grund .sinnbild{stroke-width:2}
         .blass{color:var(--blass);font-style:normal}
         .zeitraum a{margin-right:12px;font-size:13px;color:var(--leise)}
         .zeitraum a.hier{color:var(--schrift);font-weight:600}

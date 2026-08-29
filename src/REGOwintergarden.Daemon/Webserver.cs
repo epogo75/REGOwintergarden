@@ -138,8 +138,33 @@ public sealed class Webserver : IDisposable
 
                 case "/konfig":
                     Senden(kontext, 200, "text/html; charset=utf-8",
-                        Webseite.Konfigseite(_dienst, DateTime.Now,
-                            kontext.Request.QueryString["gut"] is null ? "" : "&Uuml;bernommen."));
+                        Webseite.Konfigseite(_dienst, DateTime.Now, Gut(kontext)));
+                    return;
+
+                case "/konfig/antriebe":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Antriebsliste(_dienst, DateTime.Now, Gut(kontext)));
+                    return;
+
+                case "/konfig/antrieb":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Antriebsformular(_dienst, DateTime.Now,
+                            kontext.Request.QueryString["id"] ?? "", Gut(kontext)));
+                    return;
+
+                case "/konfig/zeiten":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Zeitenseite(_dienst, DateTime.Now, Gut(kontext)));
+                    return;
+
+                case "/konfig/anschluss":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Anschlussseite(_dienst, DateTime.Now, Gut(kontext)));
+                    return;
+
+                case "/konfig/protokoll":
+                    Senden(kontext, 200, "text/html; charset=utf-8",
+                        Webseite.Protokollseite(_dienst, DateTime.Now, Gut(kontext)));
                     return;
 
                 case "/schalten":
@@ -148,6 +173,23 @@ public sealed class Webserver : IDisposable
 
                 case "/einstellen":
                     await EinstellenAsync(kontext).ConfigureAwait(false);
+                    return;
+
+                case "/antrieb":
+                    await AntriebAsync(kontext).ConfigureAwait(false);
+                    return;
+
+                case "/zeit":
+                    await ZeitAsync(kontext).ConfigureAwait(false);
+                    return;
+
+                case "/anschluss":
+                    await AnschlussAsync(kontext).ConfigureAwait(false);
+                    return;
+
+                case "/abfragen":
+                    await _dienst.AbfragenAsync().ConfigureAwait(false);
+                    Zurueck(kontext, "/konfig/anschluss?gut=1");
                     return;
 
                 case "/lage.json":
@@ -275,11 +317,35 @@ public sealed class Webserver : IDisposable
         Zurueck(kontext, "/automatik");
     }
 
-    /// <summary>Grenzen und Zeiten aus dem Formular uebernehmen.</summary>
+    /// <summary>Die Anlageseite - Standort, Adressen, Grenzen.</summary>
     private async Task EinstellenAsync(HttpListenerContext kontext)
     {
         var felder = await FelderAsync(kontext).ConfigureAwait(false);
         var anlage = _dienst.Anlage;
+
+        anlage.Name = Wort(felder, "name", anlage.Name);
+        anlage.Ort = Wort(felder, "ort", anlage.Ort);
+        anlage.Breite = Zahl(felder, "breite", anlage.Breite);
+        anlage.Laenge = Zahl(felder, "laenge", anlage.Laenge);
+
+        // Adressen duerfen geleert werden - eine Wetterstation ohne
+        // Helligkeitsfuehler ist ein gewoehnlicher Fall.
+        anlage.AdresseWindalarm = Adressfeld(felder, "adr_windalarm", anlage.AdresseWindalarm);
+        anlage.AdresseWind = Adressfeld(felder, "adr_wind", anlage.AdresseWind);
+        anlage.AdresseRegen = Adressfeld(felder, "adr_regen", anlage.AdresseRegen);
+        anlage.AdresseAussen = Adressfeld(felder, "adr_aussen", anlage.AdresseAussen);
+        anlage.AdresseInnen = Adressfeld(felder, "adr_innen", anlage.AdresseInnen);
+        anlage.AdresseHellOst = Adressfeld(felder, "adr_ost", anlage.AdresseHellOst);
+        anlage.AdresseHellSued = Adressfeld(felder, "adr_sued", anlage.AdresseHellSued);
+        anlage.AdresseHellWest = Adressfeld(felder, "adr_west", anlage.AdresseHellWest);
+        anlage.AdresseAzimut = Adressfeld(felder, "adr_azimut", anlage.AdresseAzimut);
+        anlage.AdresseElevation = Adressfeld(felder, "adr_elevation", anlage.AdresseElevation);
+        anlage.AdresseWindausgabe = Adressfeld(felder, "adr_windaus", anlage.AdresseWindausgabe);
+        anlage.AdresseRegenausgabe = Adressfeld(felder, "adr_regenaus", anlage.AdresseRegenausgabe);
+
+        anlage.AusgabetaktSekunden = Zahl(felder, "ausgabetakt", anlage.AusgabetaktSekunden);
+        anlage.WindgrenzeAusgabe = Zahl(felder, "windausgabe", anlage.WindgrenzeAusgabe);
+        anlage.AusgabeInvertiert = Haken(felder, "invertiert", anlage.AusgabeInvertiert);
 
         // Was nicht als Zahl lesbar ist, bleibt stehen. Ein leeres Feld soll
         // keine Grenze auf null setzen - das waere die Beschattung, die nie
@@ -287,17 +353,162 @@ public sealed class Webserver : IDisposable
         anlage.Helligkeitsschwelle = Zahl(felder, "helligkeit", anlage.Helligkeitsschwelle);
         anlage.EinschaltverzoegerungMinuten = Zahl(felder, "ein", anlage.EinschaltverzoegerungMinuten);
         anlage.AusschaltverzoegerungMinuten = Zahl(felder, "aus", anlage.AusschaltverzoegerungMinuten);
-        anlage.LueftungAb = Zahl(felder, "lueftungab", anlage.LueftungAb);
-        anlage.Lueftungsposition = Zahl(felder, "lueftungspos", anlage.Lueftungsposition);
-        anlage.WindgrenzeAusgabe = Zahl(felder, "windausgabe", anlage.WindgrenzeAusgabe);
-        anlage.AusgabetaktSekunden = Zahl(felder, "ausgabetakt", anlage.AusgabetaktSekunden);
-        anlage.HandsperreMinuten = Zahl(felder, "handsperre", anlage.HandsperreMinuten);
-        anlage.TaktSekunden = Zahl(felder, "takt", anlage.TaktSekunden);
+        anlage.InnenWarm = Zahl(felder, "innenwarm", anlage.InnenWarm);
+        anlage.WarmFaktor = Zahl(felder, "warmfaktor", anlage.WarmFaktor);
 
-        _melden("Konfiguration", "ueber die Weboberflaeche geaendert", false);
+        anlage.LueftungAb = Zahl(felder, "lueftungab", anlage.LueftungAb);
+        anlage.LueftungHysterese = Zahl(felder, "lueftunghyst", anlage.LueftungHysterese);
+        anlage.LueftungUnterschied = Zahl(felder, "lueftungdelta", anlage.LueftungUnterschied);
+        anlage.Lueftungsposition = Zahl(felder, "lueftungspos", anlage.Lueftungsposition);
+
+        anlage.WaermegewinnAussen = Zahl(felder, "waermeaussen", anlage.WaermegewinnAussen);
+        anlage.WaermegewinnInnen = Zahl(felder, "waermeinnen", anlage.WaermegewinnInnen);
+        anlage.HitzevorsorgeAb = Zahl(felder, "hitzeab", anlage.HitzevorsorgeAb);
+        anlage.NachtauskuehlungAb = Zahl(felder, "nachtab", anlage.NachtauskuehlungAb);
+        anlage.NachtauskuehlungZiel = Zahl(felder, "nachtziel", anlage.NachtauskuehlungZiel);
+
+        anlage.WindNachlaufMinuten = Zahl(felder, "windnachlauf", anlage.WindNachlaufMinuten);
+        anlage.RegenNachlaufMinuten = Zahl(felder, "regennachlauf", anlage.RegenNachlaufMinuten);
+        anlage.HandsperreMinuten = Zahl(felder, "handsperre", anlage.HandsperreMinuten);
+        anlage.HoechstalterWindMinuten = Zahl(felder, "alterwind", anlage.HoechstalterWindMinuten);
+        anlage.HoechstalterRegenMinuten = Zahl(felder, "alterregen", anlage.HoechstalterRegenMinuten);
+        anlage.HoechstalterTemperaturMinuten = Zahl(felder, "altertemp", anlage.HoechstalterTemperaturMinuten);
+        anlage.HoechstalterHelligkeitMinuten = Zahl(felder, "alterhell", anlage.HoechstalterHelligkeitMinuten);
+        anlage.TaktSekunden = Zahl(felder, "takt", anlage.TaktSekunden);
+        anlage.MindestpauseSekunden = Zahl(felder, "pause", anlage.MindestpauseSekunden);
+
+        _melden("Konfiguration", "Anlage ueber die Weboberflaeche geaendert", false);
         Sichern();
         Zurueck(kontext, "/konfig?gut=1");
     }
+
+    /// <summary>Ein Antrieb mit allen Feldern.</summary>
+    private async Task AntriebAsync(HttpListenerContext kontext)
+    {
+        var felder = await FelderAsync(kontext).ConfigureAwait(false);
+        felder.TryGetValue("id", out var id);
+
+        var motor = _dienst.Anlage.Finde(id ?? "");
+        if (motor is null)
+        {
+            Senden(kontext, 404, "text/plain; charset=utf-8", "Antrieb nicht gefunden");
+            return;
+        }
+
+        motor.Name = Wort(felder, "name", motor.Name);
+        if (felder.TryGetValue("art", out var art)
+            && Enum.TryParse<Antriebsart>(art, ignoreCase: true, out var gelesen))
+        {
+            motor.Art = gelesen;
+        }
+        motor.Ausrichtung = Motor.Normiert(Zahl(felder, "ausrichtung", motor.Ausrichtung));
+
+        motor.Oeffnungswinkel = Zahl(felder, "oeffnung", motor.Oeffnungswinkel);
+        motor.ElevationMin = Zahl(felder, "elevmin", motor.ElevationMin);
+        motor.ElevationMax = Zahl(felder, "elevmax", motor.ElevationMax);
+        motor.Beschattungsposition = Zahl(felder, "beschattung", motor.Beschattungsposition);
+        motor.Lamellenposition = Zahl(felder, "lamelle", motor.Lamellenposition);
+        motor.Freiposition = Zahl(felder, "frei", motor.Freiposition);
+
+        motor.Windgrenze = Zahl(felder, "wind", motor.Windgrenze);
+        motor.Frostgrenze = Zahl(felder, "frost", motor.Frostgrenze);
+        motor.Regenschutz = Haken(felder, "regenschutz", motor.Regenschutz);
+
+        motor.BeschattungAktiv = Haken(felder, "beschattungaktiv", motor.BeschattungAktiv);
+        motor.LueftungAktiv = Haken(felder, "lueftungaktiv", motor.LueftungAktiv);
+        motor.ZeitAktiv = Haken(felder, "zeitaktiv", motor.ZeitAktiv);
+
+        motor.AdresseFahren = Adressfeld(felder, "adr_fahren", motor.AdresseFahren);
+        motor.AdresseStopp = Adressfeld(felder, "adr_stopp", motor.AdresseStopp);
+        motor.AdressePosition = Adressfeld(felder, "adr_position", motor.AdressePosition);
+        motor.AdressePositionStatus = Adressfeld(felder, "adr_positionstatus", motor.AdressePositionStatus);
+        motor.AdresseLamelle = Adressfeld(felder, "adr_lamelle", motor.AdresseLamelle);
+        motor.AdresseLamelleStatus = Adressfeld(felder, "adr_lamellestatus", motor.AdresseLamelleStatus);
+
+        _melden("Konfiguration", motor.Name + " ueber die Weboberflaeche geaendert", false);
+        Sichern();
+        Zurueck(kontext, "/konfig/antrieb?gut=1&id=" + Uri.EscapeDataString(motor.Id));
+    }
+
+    /// <summary>Eine Schaltzeit anlegen, schalten oder loeschen.</summary>
+    private async Task ZeitAsync(HttpListenerContext kontext)
+    {
+        var felder = await FelderAsync(kontext).ConfigureAwait(false);
+        felder.TryGetValue("was", out var was);
+        felder.TryGetValue("id", out var id);
+        var anlage = _dienst.Anlage;
+
+        switch (was)
+        {
+            case "neu":
+                var zeit = new Schaltzeit
+                {
+                    Zeit = Wort(felder, "zeit", "07:00"),
+                    Versatz = (int)Zahl(felder, "versatz", 0),
+                    Tage = Wort(felder, "tage", "1234567"),
+                    MotorId = Wort(felder, "motor", ""),
+                    Position = Zahl(felder, "position", 100),
+                    Bemerkung = Wort(felder, "bemerkung", ""),
+                };
+                anlage.Schaltzeiten.Add(zeit);
+                _melden("Zeitschaltuhr", "angelegt: " + zeit.Beschreibung(), false);
+                break;
+
+            case "schalten":
+                var treffer = anlage.Schaltzeiten.Find(z => z.Id == id);
+                if (treffer is null) break;
+                treffer.Aktiv = !treffer.Aktiv;
+                _melden("Zeitschaltuhr", (treffer.Aktiv ? "eingeschaltet: " : "ausgeschaltet: ")
+                                         + treffer.Beschreibung(), false);
+                break;
+
+            case "loeschen":
+                var weg = anlage.Schaltzeiten.Find(z => z.Id == id);
+                if (weg is null) break;
+                anlage.Schaltzeiten.Remove(weg);
+                _melden("Zeitschaltuhr", "geloescht: " + weg.Beschreibung(), false);
+                break;
+
+            default:
+                Senden(kontext, 400, "text/plain; charset=utf-8", "unbekannter Auftrag");
+                return;
+        }
+
+        Sichern();
+        Zurueck(kontext, "/konfig/zeiten?gut=1");
+    }
+
+    /// <summary>Gateway eintragen und verbinden.</summary>
+    private async Task AnschlussAsync(HttpListenerContext kontext)
+    {
+        var felder = await FelderAsync(kontext).ConfigureAwait(false);
+        var gateway = Wort(felder, "gateway", _dienst.Einstellungen.Gateway).Trim();
+
+        _dienst.Einstellungen.Gateway = gateway;
+        Sichern();
+
+        if (gateway.Length > 0) await _dienst.VerbindenAsync(gateway).ConfigureAwait(false);
+        else await _dienst.TrennenAsync().ConfigureAwait(false);
+
+        Zurueck(kontext, "/konfig/anschluss?gut=1");
+    }
+
+    private static string Gut(HttpListenerContext kontext) =>
+        kontext.Request.QueryString["gut"] is null ? "" : "Uebernommen.";
+
+    private static string Wort(Dictionary<string, string> felder, string name, string sonst) =>
+        felder.TryGetValue(name, out var text) && text.Trim().Length > 0 ? text.Trim() : sonst;
+
+    /// <summary>
+    /// Eine Adresse darf geleert werden - anders als ein Name. Ohne diesen
+    /// Unterschied liesse sich ein einmal eingetragener Helligkeitsfuehler nie
+    /// wieder loswerden.
+    /// </summary>
+    private static string Adressfeld(Dictionary<string, string> felder, string name, string sonst) =>
+        felder.TryGetValue(name, out var text) ? text.Trim() : sonst;
+
+    private static bool Haken(Dictionary<string, string> felder, string name, bool sonst) =>
+        felder.TryGetValue(name, out var text) ? text == "1" : sonst;
 
     /// <summary>
     /// Sofort in die Datei. Wer am Tablet eine Grenze aendert, erwartet nicht,

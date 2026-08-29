@@ -119,6 +119,22 @@ public sealed class Wintergartendienst : IAsyncDisposable
     public DateTime Gestartet { get; } = DateTime.Now;
 
     /// <summary>
+    /// Die letzten Protokollzeilen.
+    ///
+    /// Gebraucht wird das von jeder Anzeige, die spaeter dazukommt als das
+    /// Ereignis: das Fenster haengt am <see cref="Protokolliert"/>-Ereignis
+    /// und bekommt jede Zeile sofort, eine Seite im Browser wird dagegen erst
+    /// aufgerufen, wenn etwas passiert ist. Ohne Gedaechtnis stuende dort
+    /// jedes Mal eine leere Liste.
+    /// </summary>
+    public IReadOnlyList<Protokollzeile> Protokoll
+    {
+        get { lock (_schloss) return _protokoll.ToArray(); }
+    }
+
+    private readonly Queue<Protokollzeile> _protokoll = new();
+
+    /// <summary>
     /// Wann zuletzt gerechnet wurde.
     ///
     /// Das ist die Frage, die man einem Dienst ohne Bildschirm wirklich
@@ -912,6 +928,16 @@ public sealed class Wintergartendienst : IAsyncDisposable
     public void Melden(string was, string dazu, bool problem = false)
     {
         var zeile = new Protokollzeile(was, dazu, problem);
+
+        // Die letzten dreihundert behalten. Mehr braucht keine Anzeige, und
+        // wer weiter zurueck will, liest die Protokolldatei - dort steht
+        // alles.
+        lock (_schloss)
+        {
+            _protokoll.Enqueue(zeile);
+            while (_protokoll.Count > 300) _protokoll.Dequeue();
+        }
+
         Protokolliert?.Invoke(zeile);
         Schreiben(zeile);
     }

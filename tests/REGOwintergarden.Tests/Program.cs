@@ -960,12 +960,18 @@ public static class Program
 
         // Das Menue gehoert auf jede Seite: eine Steuerung, bei der man die
         // Automatikseite nur kennt, wenn man die Adresse weiss, hat sie nicht.
+        var erster = einstellungen.Anlage.Motoren[0];
         var seiten = new[]
         {
             ("Bedienung", seite),
             ("Automatik", REGOwintergarden.Web.Webseite.Automatikseite(dienst, zeitpunkt)),
             ("Verlauf", REGOwintergarden.Web.Webseite.Verlaufsseite(dienst, zeitpunkt, 24)),
-            ("Konfiguration", REGOwintergarden.Web.Webseite.Konfigseite(dienst, zeitpunkt, "")),
+            ("Anlage", REGOwintergarden.Web.Webseite.Konfigseite(dienst, zeitpunkt, "")),
+            ("Antriebe", REGOwintergarden.Web.Webseite.Antriebsliste(dienst, zeitpunkt, "")),
+            ("Antrieb", REGOwintergarden.Web.Webseite.Antriebsformular(dienst, zeitpunkt, erster.Id, "")),
+            ("Zeiten", REGOwintergarden.Web.Webseite.Zeitenseite(dienst, zeitpunkt, "")),
+            ("Anschluss", REGOwintergarden.Web.Webseite.Anschlussseite(dienst, zeitpunkt, "")),
+            ("Protokoll", REGOwintergarden.Web.Webseite.Protokollseite(dienst, zeitpunkt, "")),
         };
         foreach (var (name, inhalt) in seiten)
         {
@@ -976,6 +982,21 @@ public static class Program
             Check.Das(inhalt.Contains("</html>", StringComparison.Ordinal), name + " ist vollstaendig");
         }
 
+        // Die Sinnbilder sind dieselben Striche wie im Fenster - moeglich,
+        // weil WPF seine Pfadsyntax von SVG hat. Geprueft wird, dass die
+        // Seite sie wirklich zeichnet und nicht nur Text zeigt.
+        Check.Das(seite.Contains("class=\"sinnbild\"", StringComparison.Ordinal),
+            "die Seite zeichnet Sinnbilder");
+        Check.Das(seite.Contains(REGOwintergarden.Model.Sinnbilder.Wind, StringComparison.Ordinal),
+            "und zwar dieselben wie im Fenster");
+        Check.Gleich(REGOwintergarden.Model.Sinnbilder.Markise,
+            REGOwintergarden.Ui.Symbole.Markise, "das Fenster nimmt sie aus dem Kern");
+        Check.Gleich(REGOwintergarden.Model.Sinnbilder.Fenster,
+            REGOwintergarden.Model.Sinnbilder.FuerArt(Antriebsart.Fenster),
+            "die Art findet ihr Sinnbild");
+        Check.Gleich(REGOwintergarden.Model.Sinnbilder.Wind,
+            REGOwintergarden.Model.Sinnbilder.FuerStufe(Stufe.Wind), "die Stufe auch");
+
         var automatik = seiten[1].Item2;
         Check.Das(automatik.Contains("action=\"/schalten\"", StringComparison.Ordinal),
             "die Regeln lassen sich schalten");
@@ -984,7 +1005,42 @@ public static class Program
             "die Nachtauskuehlung auch");
 
         Check.Das(seiten[3].Item2.Contains("action=\"/einstellen\"", StringComparison.Ordinal),
-            "die Konfiguration laesst sich aendern");
+            "die Anlage laesst sich aendern");
+
+        // Was im Fenster steht, muss auch im Browser stehen - sonst ist die
+        // zweite Oberflaeche nur die halbe.
+        var anlageseite = seiten[3].Item2;
+        foreach (var feld in new[] { "name=\"ort\"", "name=\"breite\"", "name=\"adr_windalarm\"",
+                     "name=\"adr_innen\"", "name=\"adr_windaus\"", "name=\"helligkeit\"",
+                     "name=\"lueftunghyst\"", "name=\"waermeaussen\"", "name=\"alterwind\"",
+                     "name=\"invertiert\"" })
+        {
+            Check.Das(anlageseite.Contains(feld, StringComparison.Ordinal),
+                "die Anlageseite hat " + feld);
+        }
+
+        var antrieb = seiten[5].Item2;
+        foreach (var feld in new[] { "name=\"ausrichtung\"", "name=\"oeffnung\"", "name=\"elevmin\"",
+                     "name=\"beschattung\"", "name=\"wind\"", "name=\"frost\"",
+                     "name=\"regenschutz\"", "name=\"adr_fahren\"", "name=\"adr_lamellestatus\"",
+                     "name=\"art\"" })
+        {
+            Check.Das(antrieb.Contains(feld, StringComparison.Ordinal),
+                "das Antriebsformular hat " + feld);
+        }
+
+        Check.Das(seiten[6].Item2.Contains("action=\"/zeit\"", StringComparison.Ordinal),
+            "Schaltzeiten lassen sich anlegen");
+        Check.Das(seiten[7].Item2.Contains("name=\"gateway\"", StringComparison.Ordinal),
+            "das Gateway laesst sich eintragen");
+        Check.Das(seiten[8].Item2.Contains("Protokoll", StringComparison.Ordinal),
+            "das Protokoll ist da");
+
+        // Ein Haken braucht sein verstecktes Feld davor, sonst laesst er sich
+        // nie wieder entfernen: HTML schickt einen leeren Kasten gar nicht mit.
+        Check.Das(antrieb.Contains("<input type=\"hidden\" name=\"regenschutz\" value=\"0\">",
+                StringComparison.Ordinal),
+            "jeder Haken hat sein Gegenstueck zum Abwaehlen");
 
         // Die Frage, die man einem Geraet ohne Bildschirm wirklich stellt.
         // Gemessen wird am letzten Takt: der Webserver antwortet auch dann
