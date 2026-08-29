@@ -85,7 +85,7 @@ public static class Programm
             return 0;
         }
 
-        using var web = new Webserver(dienst, port, dienst.Melden);
+        using var web = new Webserver(dienst, ordner, port, dienst.Melden);
         web.Starten();
 
         if (einstellungen.Gateway.Length > 0)

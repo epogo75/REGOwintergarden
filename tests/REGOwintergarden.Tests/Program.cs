@@ -96,6 +96,7 @@ public static class Program
         Verlauf();
         Oberflaeche();
         Weboberflaeche();
+        Fernbedienung();
         Symbol();
 
         return Check.Bericht();
@@ -958,6 +959,100 @@ public static class Program
             "ohne Wetterstation meldet auch die Seite den Windschutz");
 
         dienst.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        try { System.IO.Directory.Delete(ordner, recursive: true); }
+        catch (System.IO.IOException) { }
+    }
+
+    // ===================================================================
+    // Fernbedienung - das zweite Gesicht auf derselben Anlage
+    // ===================================================================
+
+    /// <summary>
+    /// Prueft den Weg der Rohwerte vom fuehrenden Dienst zum zweiten Fenster.
+    ///
+    /// Uebertragen werden Bytes und keine fertige Anzeige. Genau darauf kommt
+    /// es an: rechnet drueben derselbe Quelltext aus denselben Bytes, koennen
+    /// die beiden Fenster gar nicht auseinander laufen. Ginge der fertige Text
+    /// ueber die Leitung, muesste man zwei Darstellungen pflegen - und die
+    /// zweite waere immer die aeltere.
+    /// </summary>
+    private static void Fernbedienung()
+    {
+        Check.Abschnitt("Fernbedienung");
+
+        Check.Gleich("http://192.168.1.229:5195", Fernsteuerung.Aufraeumen("192.168.1.229:5195"),
+            "eine getippte Adresse bekommt ihr http:// davor");
+        Check.Gleich("http://pi:8080", Fernsteuerung.Aufraeumen(" http://pi:8080/ "),
+            "und ein Schraegstrich am Ende faellt weg");
+        Check.Gleich("", Fernsteuerung.Aufraeumen("   "), "nichts bleibt nichts");
+
+        // Hin und zurueck: die kurze Form (DPT 1) und die lange (DPT 9) sind
+        // auf dem Bus verschiedene Dinge, und ein Geraet, das die kurze
+        // erwartet, versteht die lange nicht. Also muss beides den Weg
+        // ueberstehen.
+        Check.Gleich("01", Fernsteuerung.Hex(Payload.FromSmall(1)), "ein Bit als Hexzahl");
+        Check.Gleich("0c1a", Fernsteuerung.Hex(Payload.FromBytes(0x0c, 0x1a)), "und zwei Oktette");
+        Check.Gleich(2, Fernsteuerung.Bytes("0c1a").Length, "zurueckgelesen sind es wieder zwei");
+        Check.Gleich(0, Fernsteuerung.Bytes("unfug!").Length, "Unlesbares wirft nicht, es bleibt leer");
+
+        var json = "{\"version\":\"1.0\",\"anlage\":\"Wintergarten\","
+                   + "\"werte\":["
+                   + "{\"adresse\":\"1/1/1\",\"roh\":\"01\",\"klein\":true,\"zeit\":\"2026-07-01T14:00:00\"},"
+                   + "{\"adresse\":\"1/1/2\",\"roh\":\"0c1a\",\"klein\":false,\"zeit\":\"2026-07-01T14:00:00\"}"
+                   + "],\"handsperren\":{\"markise\":\"2026-07-01T14:30:00\"}}";
+
+        var zustand = Fernsteuerung.Lesen(json);
+        Check.Gleich(2, zustand.Werte.Count, "beide Werte kommen an");
+        Check.Gleich("Wintergarten", zustand.Anlage, "der Anlagenname auch");
+        Check.Das(zustand.Werte[0].Wert.IsSmall, "das Bit bleibt die kurze Form");
+        Check.Das(!zustand.Werte[1].Wert.IsSmall, "und die Temperatur die lange");
+        Check.Gleich(1, zustand.Handsperren.Count, "die Handsperre kommt mit");
+
+        // Und nun der ganze Weg: ein Dienst gibt seinen Busstand heraus, ein
+        // zweiter uebernimmt ihn und liest daraus dieselbe Temperatur.
+        var ordner = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "REGOwintergarden-fern-" + Guid.NewGuid().ToString("N"));
+        var anlage = Anlage.Beispiel();
+        anlage.AdresseAussen = "1/1/2";
+        var zweiter = new Wintergartendienst(
+            new Einstellungen { Anlage = anlage, VorhersageHolen = false }, ordner);
+
+        zweiter.UebernehmenAus(zustand);
+        var wetter = zweiter.Wetter();
+        Check.Das(wetter.Aussen is not null, "die Aussentemperatur ist angekommen");
+
+        // 0c1a ist nach DPT 9.001 rund 21,0 Grad - gerechnet, nicht geraten:
+        // Vorzeichen 0, Exponent 1, Mantisse 0x41a = 1050, also 1050 * 0,01 * 2.
+        Check.Nahe(21.0, wetter.Aussen!.Value.Wert, 0.2, "und ergibt wieder dieselbe Zahl");
+
+        // Die Handsperre muss ankommen, sonst faehrt das zweite Fenster in
+        // seiner Anzeige weiter, waehrend drueben jemand von Hand steht.
+        var sperren = zweiter.Handsperren();
+        Check.Das(sperren.ContainsKey("markise"), "die Handsperre gilt auch hier");
+
+        // Die Gegenrichtung: was hereinkam, geht auch wieder hinaus.
+        var heraus = zweiter.Buswerte();
+        Check.Gleich(2, heraus.Count, "der eigene Busstand hat beide Werte");
+
+        // Nur die Anlage wird uebernommen, nicht die ganze Datei. Sonst
+        // schaltete sich die Fernbedienung mit dem ersten Uebernehmen selbst
+        // ab - und traege die Gatewayadresse des anderen ein.
+        var meine = new Einstellungen
+        {
+            Fernbedienung = true, Fernadresse = "http://pi:5195", Gateway = "", Anlage = new Anlage(),
+        };
+        var fremd = "{\"gateway\":\"192.168.1.10:3671\",\"fernbedienung\":false,"
+                    + "\"anlage\":" + System.Text.Json.JsonSerializer.Serialize(Anlage.Beispiel()) + "}";
+        Check.Das(meine.AnlageUebernehmen(fremd, out var fehler), "die fremde Anlage laesst sich lesen");
+        Check.Gleich("", fehler, "ohne Klage");
+        Check.Das(meine.Anlage.Motoren.Count > 0, "und bringt Antriebe mit");
+        Check.Das(meine.Fernbedienung, "die Fernbedienung bleibt eingeschaltet");
+        Check.Gleich("", meine.Gateway, "und das fremde Gateway bleibt draussen");
+
+        Check.Das(!meine.AnlageUebernehmen("kein JSON", out var klage), "Unfug wird abgelehnt");
+        Check.Das(klage.Length > 0, "und begruendet");
+
+        zweiter.DisposeAsync().AsTask().GetAwaiter().GetResult();
         try { System.IO.Directory.Delete(ordner, recursive: true); }
         catch (System.IO.IOException) { }
     }

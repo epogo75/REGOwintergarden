@@ -34,10 +34,13 @@ public sealed class Webserver : IDisposable
     private HttpListener? _listener;
     private readonly Wintergartendienst _dienst;
     private readonly Action<string, string, bool> _melden;
+    private readonly string _ordner;
 
-    public Webserver(Wintergartendienst dienst, int port, Action<string, string, bool> melden)
+    public Webserver(Wintergartendienst dienst, string ordner, int port,
+        Action<string, string, bool> melden)
     {
         _dienst = dienst;
+        _ordner = ordner;
         _melden = melden;
         Port = port;
     }
@@ -126,8 +129,27 @@ public sealed class Webserver : IDisposable
                     Senden(kontext, 200, "application/json; charset=utf-8", Lage());
                     return;
 
+                case "/bus.json":
+                    // Fuer das zweite Gesicht: die Rohwerte, nicht die fertige
+                    // Anzeige. Damit rechnet drueben derselbe Quelltext
+                    // dasselbe aus, statt eine zweite Wahrheit zu pflegen.
+                    Senden(kontext, 200, "application/json; charset=utf-8", Buswerte());
+                    return;
+
+                case "/einstellungen.json":
+                    // Damit die Fernbedienung dieselbe Anlage vor sich hat -
+                    // dieselben Antriebe, dieselben Grenzen, dieselben
+                    // Himmelsrichtungen. Ohne das rechnete sie richtig, aber
+                    // ueber eine andere Anlage.
+                    Senden(kontext, 200, "application/json; charset=utf-8", Einstellungstext());
+                    return;
+
                 case "/fahren":
                     await FahrenAsync(kontext).ConfigureAwait(false);
+                    return;
+
+                case "/senden":
+                    await SendenAsync(kontext).ConfigureAwait(false);
                     return;
 
                 case "/gesundheit":
@@ -169,6 +191,79 @@ public sealed class Webserver : IDisposable
         kontext.Response.StatusCode = 303;
         kontext.Response.RedirectLocation = "/";
         kontext.Response.Close();
+    }
+
+    /// <summary>
+    /// Ein Wert auf den Bus, gebeten von der Fernbedienung.
+    ///
+    /// <b>Warum das hier stehen darf:</b> geschrieben wird weiterhin nur an
+    /// einer Stelle - hier. Die Fernbedienung hat keinen eigenen Tunnel, sie
+    /// bittet. Damit bleibt es bei einer Automatik und einem zyklischen
+    /// Windtelegramm, egal wie viele Fenster offen sind.
+    /// </summary>
+    private async Task SendenAsync(HttpListenerContext kontext)
+    {
+        var felder = await FelderAsync(kontext).ConfigureAwait(false);
+        felder.TryGetValue("adresse", out var adresse);
+        felder.TryGetValue("dpt", out var dpt);
+        felder.TryGetValue("wert", out var wert);
+
+        if (string.IsNullOrWhiteSpace(adresse) || string.IsNullOrWhiteSpace(dpt) || wert is null)
+        {
+            Senden(kontext, 400, "text/plain; charset=utf-8", "adresse, dpt und wert werden gebraucht");
+            return;
+        }
+
+        var gut = await _dienst.SendenFuerFernAsync(adresse, dpt, wert).ConfigureAwait(false);
+        Senden(kontext, gut ? 200 : 502, "text/plain; charset=utf-8",
+            gut ? "gesendet" : "nicht gesendet");
+    }
+
+    /// <summary>Die Rohwerte des Busses - die Grundlage fuer das zweite Gesicht.</summary>
+    private string Buswerte()
+    {
+        var speicher = new MemoryStream();
+        using (var schreiber = new Utf8JsonWriter(speicher, new JsonWriterOptions { Indented = false }))
+        {
+            schreiber.WriteStartObject();
+            schreiber.WriteString("version", Programmstand.Version);
+            schreiber.WriteString("anlage", _dienst.Anlage.Name);
+            schreiber.WriteString("zeit", DateTime.Now.ToString("O", CultureInfo.InvariantCulture));
+
+            schreiber.WriteStartArray("werte");
+            foreach (var wert in _dienst.Buswerte())
+            {
+                schreiber.WriteStartObject();
+                schreiber.WriteString("adresse", wert.Adresse);
+                schreiber.WriteString("roh", Fernsteuerung.Hex(wert.Wert));
+                schreiber.WriteBoolean("klein", wert.Wert.IsSmall);
+                schreiber.WriteString("zeit", wert.Zeit.ToString("O", CultureInfo.InvariantCulture));
+                schreiber.WriteEndObject();
+            }
+            schreiber.WriteEndArray();
+
+            schreiber.WriteStartObject("handsperren");
+            foreach (var sperre in _dienst.Handsperren())
+            {
+                schreiber.WriteString(sperre.Key, sperre.Value.ToString("O", CultureInfo.InvariantCulture));
+            }
+            schreiber.WriteEndObject();
+
+            schreiber.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(speicher.ToArray());
+    }
+
+    /// <summary>Die Einstellungen, so wie sie in der Datei stehen.</summary>
+    private string Einstellungstext()
+    {
+        var pfad = Path.Combine(_ordner, Einstellungen.Dateiname);
+        try { if (File.Exists(pfad)) return File.ReadAllText(pfad); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+
+        // Noch nie gespeichert - dann eben das, was gerade gilt.
+        return JsonSerializer.Serialize(_dienst.Einstellungen,
+            new JsonSerializerOptions { WriteIndented = true });
     }
 
     private static async Task<Dictionary<string, string>> FelderAsync(HttpListenerContext kontext)

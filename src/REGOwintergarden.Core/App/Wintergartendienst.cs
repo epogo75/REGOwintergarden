@@ -115,6 +115,104 @@ public sealed class Wintergartendienst : IAsyncDisposable
     /// <summary>Ob die Automatik gerade laeuft.</summary>
     public bool Laeuft => _lauf is not null;
 
+    // ---- Fernbedienung -----------------------------------------------------
+
+    /// <summary>
+    /// Der Draht zum fuehrenden Dienst - gesetzt heisst: dieses Programm ist
+    /// das zweite Gesicht und nicht der Chef.
+    /// </summary>
+    public Fernsteuerung? Fern { get; private set; }
+
+    /// <summary>Ob dieses Programm einem anderen zusieht, statt selbst zu steuern.</summary>
+    public bool IstFern => Fern is not null;
+
+    /// <summary>
+    /// Haengt sich an einen fuehrenden Dienst.
+    ///
+    /// Danach wird kein KNX-Tunnel mehr geoeffnet: die Rohwerte kommen von
+    /// dort, und jeder Befehl geht ueber ihn hinaus. Ein eigener Bus daneben
+    /// waere die zweite Automatik auf derselben Anlage - und beim zyklischen
+    /// Windtelegramm ist zweimal genau einmal zu viel.
+    /// </summary>
+    public async Task VerbindenFernAsync(string adresse)
+    {
+        await TrennenAsync().ConfigureAwait(false);
+
+        var fern = new Fernsteuerung(adresse);
+        if (fern.Adresse.Length == 0)
+        {
+            fern.Dispose();
+            Stand = Busstand.Fehler;
+            StandGeaendert?.Invoke(Stand, "Keine Adresse eingetragen, etwa 192.168.1.229:5195");
+            return;
+        }
+
+        Stand = Busstand.Verbinde;
+        StandGeaendert?.Invoke(Stand, null);
+
+        var zustand = await fern.HolenAsync().ConfigureAwait(false);
+        if (zustand is null)
+        {
+            fern.Dispose();
+            Stand = Busstand.Fehler;
+            StandGeaendert?.Invoke(Stand, fern.Adresse + " antwortet nicht");
+            Melden("nicht verbunden", fern.Adresse + " antwortet nicht - laeuft der Dienst dort?", true);
+            return;
+        }
+
+        Fern = fern;
+        UebernehmenAus(zustand);
+
+        Stand = Busstand.Verbunden;
+        StandGeaendert?.Invoke(Stand, fern.Adresse);
+        Melden("Fernbedienung", fern.Adresse + " fuehrt - Anlage " + zustand.Anlage
+                                + ", Fassung " + zustand.Version
+                                + ", " + zustand.Werte.Count.ToString(CultureInfo.CurrentCulture) + " Werte");
+    }
+
+    /// <summary>Uebernimmt Rohwerte und Handsperren des fuehrenden Dienstes.</summary>
+    public void UebernehmenAus(Fernzustand zustand)
+    {
+        foreach (var wert in zustand.Werte)
+        {
+            GroupAddress ziel;
+            try { ziel = GroupAddress.Parse3Level(wert.Adresse.Trim()); }
+            catch (KnxException) { continue; }
+
+            lock (_schloss)
+            {
+                _rohwerte[ziel] = wert.Wert;
+                _bus[ziel] = new Messwert(0, wert.Zeit);
+            }
+        }
+
+        foreach (var sperre in zustand.Handsperren)
+        {
+            _automatik.Merker(sperre.Key).HandBis = sperre.Value;
+        }
+    }
+
+    /// <summary>
+    /// Der eigene Busstand zum Weitergeben - die Gegenrichtung zu
+    /// <see cref="UebernehmenAus"/>.
+    /// </summary>
+    public IReadOnlyList<Fernwert> Buswerte()
+    {
+        var werte = new List<Fernwert>();
+        lock (_schloss)
+        {
+            foreach (var paar in _rohwerte)
+            {
+                var zeit = _bus.TryGetValue(paar.Key, out var wann) ? wann.Zeit : DateTime.Now;
+                werte.Add(new Fernwert(paar.Key.ToString(), paar.Value, zeit));
+            }
+        }
+        return werte;
+    }
+
+    /// <summary>Die laufenden Handsperren - fuer die Fernbedienung.</summary>
+    public IReadOnlyDictionary<string, DateTime> Handsperren() => _automatik.Handsperren();
+
     // ---- Bus ---------------------------------------------------------------
 
     public static bool TryGateway(string? text, out IPEndPoint? ziel)
@@ -162,6 +260,14 @@ public sealed class Wintergartendienst : IAsyncDisposable
 
     public async Task TrennenAsync()
     {
+        if (Fern is { } fern)
+        {
+            Fern = null;
+            fern.Dispose();
+            Stand = Busstand.Getrennt;
+            StandGeaendert?.Invoke(Stand, null);
+        }
+
         KnxTunnelClient? client;
         lock (_schloss)
         {
@@ -222,6 +328,24 @@ public sealed class Wintergartendienst : IAsyncDisposable
     /// <summary>Fragt alle eingetragenen Adressen ab - mit Luft dazwischen.</summary>
     public async Task<int> AbfragenAsync()
     {
+        // In der Fernbedienung hat der fuehrende Dienst die Anlage schon
+        // abgefragt - es genuegt, ihm seinen Stand abzunehmen. Selbst zu
+        // fragen hiesse, ohne Tunnel auf den Bus zu wollen.
+        if (Fern is { } fern)
+        {
+            var zustand = await fern.HolenAsync().ConfigureAwait(false);
+            if (zustand is null)
+            {
+                Melden("nicht abgefragt", fern.Adresse + " antwortet nicht", true);
+                return 0;
+            }
+            UebernehmenAus(zustand);
+            Melden("uebernommen", zustand.Werte.Count.ToString(CultureInfo.CurrentCulture)
+                                  + " Werte von " + fern.Adresse);
+            Aufgefrischt?.Invoke();
+            return zustand.Werte.Count;
+        }
+
         KnxTunnelClient? client;
         lock (_schloss) client = _client;
         if (client is null)
@@ -420,6 +544,16 @@ public sealed class Wintergartendienst : IAsyncDisposable
     public async Task TaktAsync(DateTime jetzt, CancellationToken ct = default)
     {
         var anlage = Anlage;
+
+        // Fernbedienung: erst den Stand des Chefs holen, dann daraus dasselbe
+        // ausrechnen wie er - aber nichts davon ausfuehren und nichts
+        // ausgeben. Wer nur zusieht, faehrt nicht mit.
+        if (Fern is { } fern)
+        {
+            await FerntaktAsync(anlage, fern, jetzt, ct).ConfigureAwait(false);
+            return;
+        }
+
         Sonne = Sonnenstand(jetzt);
 
         if (Einstellungen.VorhersageHolen && anlage.VorhersageAktiv
@@ -477,6 +611,47 @@ public sealed class Wintergartendienst : IAsyncDisposable
                 Melden("Zeitschaltuhr", faellig.ToString());
             }
         }
+
+        Aufgefrischt?.Invoke();
+    }
+
+    /// <summary>
+    /// Ein Takt als zweites Gesicht: holen, rechnen, anzeigen - nicht fahren.
+    ///
+    /// Gerechnet wird trotzdem alles, und zwar mit demselben Quelltext wie
+    /// drueben. Das ist der Punkt: kaeme die fertige Anzeige als Text ueber
+    /// die Leitung, gaebe es zwei Wahrheiten, die mit der Zeit auseinander
+    /// laufen. So gibt es eine, zweimal ausgerechnet.
+    /// </summary>
+    private async Task FerntaktAsync(Anlage anlage, Fernsteuerung fern, DateTime jetzt,
+        CancellationToken ct)
+    {
+        var zustand = await fern.HolenAsync(ct).ConfigureAwait(false);
+        if (zustand is null)
+        {
+            if (Stand == Busstand.Verbunden)
+            {
+                Stand = Busstand.Fehler;
+                StandGeaendert?.Invoke(Stand, fern.Adresse + " antwortet nicht");
+                Melden("Fernbedienung", fern.Adresse + " antwortet nicht", true);
+            }
+            return;
+        }
+
+        if (Stand != Busstand.Verbunden)
+        {
+            Stand = Busstand.Verbunden;
+            StandGeaendert?.Invoke(Stand, fern.Adresse);
+            Melden("Fernbedienung", fern.Adresse + " antwortet wieder");
+        }
+
+        UebernehmenAus(zustand);
+
+        Sonne = Sonnenstand(jetzt);
+        var wetter = Wetter();
+        Sicherheitslage = Sicherheit.Bewerten(anlage, wetter, jetzt);
+        Lagen = _automatik.Bewerten(anlage, wetter, Sonne, jetzt);
+        Verlauf.Merken(wetter, jetzt);
 
         Aufgefrischt?.Invoke();
     }
@@ -592,6 +767,20 @@ public sealed class Wintergartendienst : IAsyncDisposable
         return gut;
     }
 
+    /// <summary>
+    /// Ein Wert auf den Bus, gebeten von einer Fernbedienung.
+    ///
+    /// Absichtlich ein eigener Weg und nicht der Tunnel nach draussen: hier
+    /// steht, dass der Befehl von woanders kommt, und hier liesse sich das
+    /// spaeter einschraenken, ohne die Automatik anzufassen.
+    /// </summary>
+    public async Task<bool> SendenFuerFernAsync(string adresse, string dpt, string wert)
+    {
+        var gut = await SendenAsync(adresse, dpt, wert).ConfigureAwait(false);
+        if (gut) Aufgefrischt?.Invoke();
+        return gut;
+    }
+
     /// <summary>Auf, Ab oder Stopp - fuer die Knoepfe in der Oberflaeche.</summary>
     public async Task<bool> BefehlAsync(Motor motor, string was)
     {
@@ -616,6 +805,36 @@ public sealed class Wintergartendienst : IAsyncDisposable
         {
             Melden("nicht gesendet", "fuer diesen Schritt ist keine Adresse eingetragen", true);
             return false;
+        }
+
+        // In der Fernbedienung geht nichts selbst auf den Bus - gebeten wird
+        // der, der ihn fuehrt. Beim naechsten Takt kommt der Wert von dort
+        // zurueck; angezeigt wird er schon jetzt, damit der Knopf sich nicht
+        // wie ein toter anfuehlt.
+        if (Fern is { } fern)
+        {
+            var angenommen = await fern.SendenAsync(adresse, dpt, wert).ConfigureAwait(false);
+            if (!angenommen)
+            {
+                Melden("nicht gesendet", fern.Adresse + " hat den Befehl nicht angenommen", true);
+                return false;
+            }
+
+            var mitschrift = ValueCodec.Encode(dpt, wert, out _);
+            if (mitschrift is not null)
+            {
+                try
+                {
+                    var wohin = GroupAddress.Parse3Level(adresse.Trim());
+                    lock (_schloss)
+                    {
+                        _rohwerte[wohin] = mitschrift;
+                        _bus[wohin] = new Messwert(0, DateTime.Now);
+                    }
+                }
+                catch (KnxException) { }
+            }
+            return true;
         }
 
         KnxTunnelClient? client;

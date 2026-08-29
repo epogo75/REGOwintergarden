@@ -431,6 +431,44 @@ Nachlässigkeit: eine Wintergartensteuerung im Heimnetz hinter eine Anmeldung zu
 sperren führt dazu, dass das Kennwort auf einem Zettel am Tablet klebt. Wer sie
 von außen erreichbar macht, gehört hinter einen Reverse Proxy mit Anmeldung.
 
+### Zwei Oberflächen, ein Chef
+
+Läuft der Dienst auf dem Pi, kann das Windows-Fenster ihm zusehen und ihn
+bedienen, statt selbst zu steuern. Unter *Konfiguration → Wer steuert* steht
+die Wahl:
+
+| | |
+|---|---|
+| **Dieses Programm steuert selbst** | eigener KNX-Tunnel, eigene Automatik — der Fall ohne Pi |
+| **Ein anderer Rechner führt** | Adresse des Dienstes eintragen, etwa `192.168.1.229:5195` |
+
+**Gesteuert wird immer nur an einer Stelle.** In der Fernbedienung öffnet das
+Windows-Programm keinen KNX-Tunnel: die Messwerte kommen vom führenden Dienst,
+und jeder Knopfdruck geht über ihn hinaus. Zwei Automatiken auf denselben
+Adressen würden sich gegenseitig überfahren — und beim zyklischen
+Windtelegramm wäre das nicht unschön, sondern gefährlich.
+
+Übertragen werden die **Rohwerte** und nicht die fertige Anzeige. Das ist der
+Kern: mit denselben Bytes und denselben Einstellungen rechnet das zweite
+Fenster dasselbe aus wie das erste, und zwar mit demselben Quelltext. Eine
+zweite Darstellung, die fertige Zahlen bekommt, läuft früher oder später
+auseinander — und dann glaubt niemand mehr einer von beiden. Nur die
+Handsperren kommen zusätzlich mit: dass jemand am Pi von Hand gefahren hat,
+steht in keinem Telegramm.
+
+„Anlage übernehmen" holt Antriebe, Adressen und Grenzen vom führenden Dienst,
+damit beide über dieselbe Anlage reden. Übernommen wird nur die Anlage — die
+Gatewayadresse des anderen bleibt draußen, und die Fernbedienung schaltet sich
+nicht selbst ab.
+
+Der Dienst gibt dafür drei Dinge heraus:
+
+| Weg | Was |
+|---|---|
+| `GET /bus.json` | Rohwerte mit Zeitstempel, dazu die laufenden Handsperren |
+| `GET /einstellungen.json` | die Anlage, wie sie dort eingerichtet ist |
+| `POST /senden` | `adresse`, `dpt`, `wert` — der Dienst legt es auf den Bus |
+
 ### Dieselben Einstellungen
 
 `einstellungen.json` hat auf beiden Systemen dasselbe Format. Eine unter

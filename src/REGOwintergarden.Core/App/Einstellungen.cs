@@ -29,6 +29,24 @@ public sealed class Einstellungen
     [JsonPropertyName("vorhersage_holen")]
     public bool VorhersageHolen { get; set; } = true;
 
+    /// <summary>
+    /// Statt selbst zu steuern nur zusehen und bedienen - über einen Dienst,
+    /// der anderswo läuft.
+    ///
+    /// <b>Warum es das gibt:</b> auf dem Raspberry Pi läuft die Steuerung rund
+    /// um die Uhr, aber sie hat kein Fenster. Wer am Windows-Rechner sitzt,
+    /// will dieselbe Anlage vor sich haben und nicht nur eine Seite im
+    /// Browser. Gesteuert wird trotzdem nur an einer Stelle: zwei Automatiken
+    /// auf demselben Bus würden sich gegenseitig überfahren, und beim
+    /// zyklischen Wind- und Regentelegramm wäre das gefährlich.
+    /// </summary>
+    [JsonPropertyName("fernbedienung")]
+    public bool Fernbedienung { get; set; }
+
+    /// <summary>Die Adresse des führenden Dienstes, etwa <c>http://192.168.1.229:5195</c>.</summary>
+    [JsonPropertyName("fernadresse")]
+    public string Fernadresse { get; set; } = "";
+
     private static readonly JsonSerializerOptions Format = new()
     {
         WriteIndented = true,
@@ -75,6 +93,35 @@ public sealed class Einstellungen
 
     /// <summary>Beim ersten Start steht schon ein Wintergarten da - nur ohne Adressen.</summary>
     private static Einstellungen Erststart() => new() { Anlage = Anlage.Beispiel() };
+
+    /// <summary>
+    /// Uebernimmt die Anlage aus den Einstellungen eines anderen Rechners.
+    ///
+    /// Nur die Anlage, nicht die ganze Datei: Gateway, Projektpfad und die
+    /// Fernbedienung selbst gehoeren diesem Rechner. Wer die mituebernaehme,
+    /// haette sich gerade die Fernbedienung wieder abgeschaltet - und die
+    /// Gatewayadresse des anderen dazu.
+    /// </summary>
+    public bool AnlageUebernehmen(string json, out string fehler)
+    {
+        fehler = "";
+        try
+        {
+            var gelesen = JsonSerializer.Deserialize<Einstellungen>(json, Format);
+            if (gelesen?.Anlage is null || gelesen.Anlage.Motoren.Count == 0)
+            {
+                fehler = "keine Anlage darin";
+                return false;
+            }
+            Anlage = gelesen.Anlage;
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            fehler = ex.Message;
+            return false;
+        }
+    }
 
     public void Speichern(string ordner)
     {

@@ -48,6 +48,9 @@ public sealed class Konfigurationsseite : UserControl
     /// <summary>Die eingetragene Gatewayadresse.</summary>
     public string Gateway => _verbindung.Gateway;
 
+    /// <summary>Schreibt Anschluss und Betriebsart in die Einstellungen.</summary>
+    public void Uebernehmen() => _verbindung.Uebernehmen();
+
     private UIElement Aufbau(UIElement protokoll)
     {
         var aussen = new DockPanel();

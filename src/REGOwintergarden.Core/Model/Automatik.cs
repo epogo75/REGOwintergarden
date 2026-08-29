@@ -129,6 +129,22 @@ public sealed class Automatik
     public void Vergessen() => _merker.Clear();
 
     /// <summary>
+    /// Die laufenden Handsperren, je Antrieb. Gebraucht wird das nur fuer die
+    /// Fernbedienung: dass jemand am anderen Rechner von Hand gefahren hat,
+    /// steht in keinem Telegramm und laesst sich deshalb auch nicht
+    /// nachrechnen - es muss mitgeteilt werden.
+    /// </summary>
+    public IReadOnlyDictionary<string, DateTime> Handsperren()
+    {
+        var sperren = new Dictionary<string, DateTime>(StringComparer.Ordinal);
+        foreach (var paar in _merker)
+        {
+            if (paar.Value.HandBis is { } bis) sperren[paar.Key] = bis;
+        }
+        return sperren;
+    }
+
+    /// <summary>
     /// Bewertet die ganze Anlage.
     ///
     /// Jeder Antrieb bekommt genau eine Lage. Ob daraus ein Telegramm wird,

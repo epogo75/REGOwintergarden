@@ -83,9 +83,23 @@ public partial class MainWindow : Window
         // Die Automatik laeuft mit, solange das Fenster offen ist. Ist der
         // Dienst eingerichtet, rechnet der ohnehin - dann waere das hier ein
         // zweiter Absender auf denselben Adressen.
-        if (!Dienstlauf.Eingerichtet()) _dienst.Starten();
+        //
+        // In der Fernbedienung laeuft der Takt dagegen immer: er faehrt nichts,
+        // er holt nur den Stand des fuehrenden Rechners ab. Ohne ihn stuende
+        // die Anzeige still.
+        if (_einstellungen.Fernbedienung || !Dienstlauf.Eingerichtet()) _dienst.Starten();
 
-        if (_einstellungen.Gateway.Length > 0) _ = _dienst.VerbindenAsync(_einstellungen.Gateway);
+        if (_einstellungen.Fernbedienung)
+        {
+            if (_einstellungen.Fernadresse.Length > 0)
+            {
+                _ = _dienst.VerbindenFernAsync(_einstellungen.Fernadresse);
+            }
+        }
+        else if (_einstellungen.Gateway.Length > 0)
+        {
+            _ = _dienst.VerbindenAsync(_einstellungen.Gateway);
+        }
     }
 
     private void AufOberflaeche(Action was)
@@ -98,12 +112,18 @@ public partial class MainWindow : Window
 
     private void Verbindung(Busstand stand, string? text)
     {
+        var fern = _einstellungen.Fernbedienung;
         LinkText.Text = stand switch
         {
-            Busstand.Verbunden => "Mit dem KNX-Bus verbunden",
+            Busstand.Verbunden => fern
+                ? "Zweites Fenster an " + (text ?? _einstellungen.Fernadresse)
+                : "Mit dem KNX-Bus verbunden",
             Busstand.Verbinde => "Verbindung wird aufgebaut…",
-            Busstand.Fehler => "Keine Busverbindung — " + (text ?? "Fehler"),
-            _ => "Nicht mit dem Bus verbunden — unter Konfiguration einrichten",
+            Busstand.Fehler => (fern ? "Kein Anschluss an den fuehrenden Rechner — " : "Keine Busverbindung — ")
+                               + (text ?? "Fehler"),
+            _ => fern
+                ? "Nicht mit dem fuehrenden Rechner verbunden — unter Konfiguration einrichten"
+                : "Nicht mit dem Bus verbunden — unter Konfiguration einrichten",
         };
         LinkText.Foreground = (Brush)FindResource(stand switch
         {
@@ -197,7 +217,7 @@ public partial class MainWindow : Window
 
     private void Speichern()
     {
-        _einstellungen.Gateway = _konfiguration?.Gateway ?? _einstellungen.Gateway;
+        _konfiguration?.Uebernehmen();
         _einstellungen.Speichern(_ordner);
     }
 
