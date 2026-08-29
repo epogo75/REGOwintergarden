@@ -440,7 +440,7 @@ die Wahl:
 | | |
 |---|---|
 | **Dieses Programm steuert selbst** | eigener KNX-Tunnel, eigene Automatik — der Fall ohne Pi |
-| **Ein anderer Rechner führt** | Adresse des Dienstes eintragen, etwa `192.168.1.229:5195` |
+| **Ein anderer Rechner führt** | Adresse des Dienstes eintragen, etwa `192.168.1.229:5200` |
 
 **Gesteuert wird immer nur an einer Stelle.** In der Fernbedienung öffnet das
 Windows-Programm keinen KNX-Tunnel: die Messwerte kommen vom führenden Dienst,

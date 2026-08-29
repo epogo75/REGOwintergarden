@@ -89,7 +89,7 @@ public sealed class Verbindungsseite : UserControl
         // ---- fernbedienen --------------------------------------------------
         _fernteil.Children.Add(Bausteine.Ueberschrift("Fuehrender Rechner"));
         _fernteil.Children.Add(Bausteine.Hinweis(
-            "Adresse des Dienstes, etwa 192.168.1.229:5195. Von dort kommen die Messwerte, dorthin "
+            "Adresse des Dienstes, etwa 192.168.1.229:5200. Von dort kommen die Messwerte, dorthin "
             + "gehen die Knoepfe. Gerechnet wird hier trotzdem alles selbst - mit denselben Werten "
             + "und demselben Programm, damit beide Fenster dasselbe zeigen und nicht zwei Wahrheiten "
             + "entstehen.", eingerueckt: false));

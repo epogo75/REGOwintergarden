@@ -56,7 +56,7 @@ public sealed class Fernsteuerung : IDisposable
 
     /// <summary>
     /// Macht aus dem, was jemand eintippt, eine brauchbare Adresse.
-    /// „192.168.1.229:5195" ist das, was man von Hand schreibt - ohne
+    /// „192.168.1.229:5200" ist das, was man von Hand schreibt - ohne
     /// http:// davor kann <see cref="Uri"/> damit nichts anfangen.
     /// </summary>
     public static string Aufraeumen(string adresse)

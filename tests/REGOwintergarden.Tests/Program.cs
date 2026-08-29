@@ -980,7 +980,7 @@ public static class Program
     {
         Check.Abschnitt("Fernbedienung");
 
-        Check.Gleich("http://192.168.1.229:5195", Fernsteuerung.Aufraeumen("192.168.1.229:5195"),
+        Check.Gleich("http://192.168.1.229:5200", Fernsteuerung.Aufraeumen("192.168.1.229:5200"),
             "eine getippte Adresse bekommt ihr http:// davor");
         Check.Gleich("http://pi:8080", Fernsteuerung.Aufraeumen(" http://pi:8080/ "),
             "und ein Schraegstrich am Ende faellt weg");
@@ -1039,7 +1039,7 @@ public static class Program
         // ab - und traege die Gatewayadresse des anderen ein.
         var meine = new Einstellungen
         {
-            Fernbedienung = true, Fernadresse = "http://pi:5195", Gateway = "", Anlage = new Anlage(),
+            Fernbedienung = true, Fernadresse = "http://pi:5200", Gateway = "", Anlage = new Anlage(),
         };
         var fremd = "{\"gateway\":\"192.168.1.10:3671\",\"fernbedienung\":false,"
                     + "\"anlage\":" + System.Text.Json.JsonSerializer.Serialize(Anlage.Beispiel()) + "}";
