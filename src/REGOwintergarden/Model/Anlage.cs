@@ -225,6 +225,59 @@ public sealed class Anlage
     [JsonPropertyName("vorhersage_aktiv")]
     public bool VorhersageAktiv { get; set; } = true;
 
+    /// <summary>
+    /// Waermegewinn: an kalten Tagen wird nicht beschattet, solange es
+    /// drinnen kuehl ist.
+    ///
+    /// Ein Wintergarten ist im Winter eine Heizung. Wer im Januar bei
+    /// Sonnenschein die Markise ausfaehrt, weil es hell genug ist, wirft die
+    /// einzige kostenlose Waerme des Tages weg - und heizt abends nach.
+    /// </summary>
+    [JsonPropertyName("waermegewinn_aktiv")]
+    public bool WaermegewinnAktiv { get; set; } = true;
+
+    /// <summary>Bis zu dieser Aussentemperatur gilt der Waermegewinn.</summary>
+    [JsonPropertyName("waermegewinn_aussen")]
+    public double WaermegewinnAussen { get; set; } = 12;
+
+    /// <summary>Und nur, solange es drinnen kuehler ist als das.</summary>
+    [JsonPropertyName("waermegewinn_innen")]
+    public double WaermegewinnInnen { get; set; } = 22;
+
+    /// <summary>
+    /// Nachtauskuehlung: nach einem heissen Tag wird nachts geluftet, solange
+    /// es draussen kuehler ist.
+    ///
+    /// Das ist die wirksamste Kuehlung, die ein Wintergarten hat, und sie
+    /// kostet nichts. Tagsueber hilft Lueften wenig - draussen ist es dann
+    /// waermer als drinnen.
+    /// </summary>
+    [JsonPropertyName("nachtauskuehlung_aktiv")]
+    public bool NachtauskuehlungAktiv { get; set; } = true;
+
+    /// <summary>Ab dieser Innentemperatur wird nachts gelueftet.</summary>
+    [JsonPropertyName("nachtauskuehlung_ab")]
+    public double NachtauskuehlungAb { get; set; } = 24;
+
+    /// <summary>Bis zu dieser Innentemperatur - dann ist genug.</summary>
+    [JsonPropertyName("nachtauskuehlung_ziel")]
+    public double NachtauskuehlungZiel { get; set; } = 21;
+
+    /// <summary>
+    /// Vorausschauende Beschattung: sagt die Vorhersage einen heissen Tag an,
+    /// wird frueher beschattet.
+    ///
+    /// Ein Wintergarten, der erst beschattet, wenn es drinnen schon warm ist,
+    /// kommt zu spaet - die Waerme steckt dann in Boden und Moebeln und geht
+    /// den ganzen Abend nicht mehr heraus.
+    /// </summary>
+    [JsonPropertyName("hitzevorsorge_aktiv")]
+    public bool HitzevorsorgeAktiv { get; set; } = true;
+
+    /// <summary>Ab dieser vorhergesagten Tageshoechsttemperatur gilt sie.</summary>
+    [JsonPropertyName("hitzevorsorge_ab")]
+    public double HitzevorsorgeAb { get; set; } = 28;
+
     // ---- Grenzen -----------------------------------------------------------
 
     /// <summary>Ab dieser Helligkeit wird beschattet, in Lux.</summary>

@@ -11,12 +11,15 @@ using REGOwintergarden.Service;
 namespace REGOwintergarden.Ui;
 
 /// <summary>
-/// Das Hauptfenster - zwei Reiter, und das ist Absicht.
+/// Das Hauptfenster - drei Seiten fuer den Endkunden, eine fuer den
+/// Errichter.
 ///
-/// Vorn <b>Bedienung</b>: was gerade gilt, was als Naechstes passiert, und
-/// drei Knoepfe je Antrieb. Dahinter <b>Konfiguration</b>: Anschluss,
-/// Antriebe, Grenzen, Schaltzeiten, Protokoll. Wer den Wintergarten benutzt,
-/// braucht den zweiten Reiter nie.
+/// <b>Bedienung</b>: was gerade gilt, was als Naechstes passiert, drei
+/// Knoepfe je Antrieb. <b>Automatik</b>: was die Steuerung von selbst tut,
+/// in ganzen Saetzen erklaert und einzeln abschaltbar. <b>Verlauf</b>: der
+/// Langzeittrend mit den Ereignissen darueber. Erst dahinter die
+/// <b>Konfiguration</b> mit Anschluss, Antrieben, Grenzen und Schaltzeiten -
+/// die braucht, wer den Wintergarten benutzt, nie.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -25,6 +28,8 @@ public partial class MainWindow : Window
     private readonly string _ordner = Einstellungen.StandardOrdner;
 
     private readonly Uebersicht _bedienung;
+    private readonly Automatikseite _automatik;
+    private readonly Verlaufsseite _verlauf;
     private readonly Konfigurationsseite _konfiguration;
 
     private readonly ObservableCollection<Protokollzeile> _protokoll = new();
@@ -46,11 +51,30 @@ public partial class MainWindow : Window
         _bedienung.Gespeichert += Speichern;
         TabBedienung.Content = _bedienung;
 
+        _automatik = new Automatikseite(_dienst);
+        _automatik.Gespeichert += () =>
+        {
+            Speichern();
+            _bedienung.Auffrischen();
+        };
+        TabAutomatik.Content = _automatik;
+
+        _verlauf = new Verlaufsseite(_dienst);
+        TabVerlauf.Content = _verlauf;
+
+        // Beim Wechsel auf den Verlauf frisch laden - die Aufzeichnung waechst
+        // waehrend das Fenster offen ist.
+        Tabs.SelectionChanged += (_, _) =>
+        {
+            if (ReferenceEquals(Tabs.SelectedItem, TabVerlauf)) _verlauf.Laden();
+        };
+
         _konfiguration = new Konfigurationsseite(_dienst, this, Protokollseite());
         _konfiguration.Gespeichert += () =>
         {
             Speichern();
             _bedienung.Auffrischen();
+            _automatik.Auffrischen();
         };
         TabKonfiguration.Content = _konfiguration;
 

@@ -258,7 +258,7 @@ public sealed class Automatik
         // ---- Lueften ------------------------------------------------------
         if (anlage.LueftungAktiv && motor.LueftungAktiv && motor.KannLueften)
         {
-            var lage = Lueften(anlage, motor, wetter, jetzt, merker);
+            var lage = Lueften(anlage, motor, wetter, sonne, jetzt, merker);
             if (lage is not null) return lage;
         }
 
@@ -282,13 +282,37 @@ public sealed class Automatik
 
         var aufDerFlaeche = motor.SonneAufDerFlaeche(sonne.Azimut, sonne.Elevation);
 
-        // Ist es drinnen schon warm, wird frueher beschattet. Die Schwelle
-        // sinkt, nicht die Verzoegerung: eine Wolke soll auch dann nicht
-        // sofort alles aufreissen.
+        // Waermegewinn: an kalten Tagen ist die Sonne kein Problem, sondern
+        // die Heizung. Wer im Januar bei Sonnenschein beschattet, weil es
+        // hell genug ist, wirft die einzige kostenlose Waerme des Tages weg.
+        if (anlage.WaermegewinnAktiv && Kalt(anlage, wetter, jetzt, out var draussen, out var drinnen))
+        {
+            merker.HellSeit = null;
+            if (merker.Beschattet)
+            {
+                merker.Beschattet = false;
+                merker.DunkelSeit = null;
+                return new Lage(motor, Stufe.Beschattung, motor.Freiposition, null,
+                    "Waermegewinn: " + Zahl(draussen) + " °C draussen, " + Zahl(drinnen)
+                    + " °C drinnen - die Sonne darf heizen");
+            }
+            return new Lage(motor, Stufe.Frei, null, null,
+                "Waermegewinn: bei " + Zahl(draussen) + " °C draussen wird nicht beschattet");
+        }
+
+        // Ist es drinnen schon warm - oder wird es das laut Vorhersage -,
+        // wird frueher beschattet. Die Schwelle sinkt, nicht die
+        // Verzoegerung: eine Wolke soll auch dann nicht sofort alles
+        // aufreissen.
         var schwelle = anlage.Helligkeitsschwelle;
         var warm = wetter.Innen is { } innen && innen.IstFrisch(jetzt, anlage.HoechstalterTemperatur)
                                              && innen.Wert >= anlage.InnenWarm;
-        if (warm) schwelle *= anlage.WarmFaktor;
+
+        var hitze = anlage.HitzevorsorgeAktiv && anlage.VorhersageAktiv
+                    && anlage.Vorhersage is { } sicht2 && sicht2.IstFrisch(jetzt)
+                    && sicht2.Hoechsttemperatur is { } spitze2 && spitze2 >= anlage.HitzevorsorgeAb;
+
+        if (warm || hitze) schwelle *= anlage.WarmFaktor;
 
         var hellGenug = aufDerFlaeche && helligkeit.Value.Wert >= schwelle;
 
@@ -312,7 +336,8 @@ public sealed class Automatik
                 motor.HatLamelle ? motor.Lamellenposition : null,
                 "Sonne aus " + Grad(sonne.Azimut) + " auf " + Grad(motor.Ausrichtung)
                 + ", " + Lux(helligkeit.Value.Wert) + " ueber der Schwelle von " + Lux(schwelle)
-                + (warm ? " (drinnen warm, Schwelle gesenkt)" : ""));
+                + (warm ? " (drinnen warm, Schwelle gesenkt)"
+                    : hitze ? " (heisser Tag angesagt, Schwelle gesenkt)" : ""));
         }
 
         merker.HellSeit = null;
@@ -337,10 +362,36 @@ public sealed class Automatik
             aufDerFlaeche ? "Beschattung beendet - zu dunkel" : "Beschattung beendet - Sonne weitergezogen");
     }
 
+    /// <summary>
+    /// Ob Waermegewinn gilt: draussen kalt und drinnen noch kuehl.
+    ///
+    /// Beides muss stimmen. Nur „draussen kalt" reicht nicht - ein
+    /// Wintergarten mit 26 Grad braucht auch im Februar Schatten.
+    /// </summary>
+    private static bool Kalt(Anlage anlage, Wetterlage wetter, DateTime jetzt,
+        out double draussen, out double drinnen)
+    {
+        draussen = 0;
+        drinnen = 0;
+
+        if (wetter.Aussen is not { } aussen || !aussen.IstFrisch(jetzt, anlage.HoechstalterTemperatur))
+        {
+            return false;
+        }
+        if (wetter.Innen is not { } innen || !innen.IstFrisch(jetzt, anlage.HoechstalterTemperatur))
+        {
+            return false;
+        }
+
+        draussen = aussen.Wert;
+        drinnen = innen.Wert;
+        return aussen.Wert <= anlage.WaermegewinnAussen && innen.Wert < anlage.WaermegewinnInnen;
+    }
+
     // ---- Lueften -----------------------------------------------------------
 
-    private static Lage? Lueften(Anlage anlage, Motor motor, Wetterlage wetter, DateTime jetzt,
-        MotorMerker merker)
+    private static Lage? Lueften(Anlage anlage, Motor motor, Wetterlage wetter, Sonnenstand sonne,
+        DateTime jetzt, MotorMerker merker)
     {
         var innen = wetter.Innen;
         if (innen is null || !innen.Value.IstFrisch(jetzt, anlage.HoechstalterTemperatur))
@@ -353,6 +404,31 @@ public sealed class Automatik
         var draussenKuehler = aussen is not null
                               && aussen.Value.IstFrisch(jetzt, anlage.HoechstalterTemperatur)
                               && aussen.Value.Wert <= innen.Value.Wert - anlage.LueftungUnterschied;
+
+        // Nachtauskuehlung: nach einem heissen Tag ist die Nacht die einzige
+        // wirksame und kostenlose Kuehlung, die ein Wintergarten hat.
+        // Tagsueber bringt Lueften wenig - draussen ist es dann waermer.
+        if (anlage.NachtauskuehlungAktiv && !sonne.Tag && draussenKuehler)
+        {
+            if (!merker.Lueftet && innen.Value.Wert >= anlage.NachtauskuehlungAb)
+            {
+                merker.Lueftet = true;
+                return new Lage(motor, Stufe.Lueftung, anlage.Lueftungsposition, null,
+                    "Nachtauskuehlung: drinnen noch " + Zahl(innen.Value.Wert) + " °C, draussen "
+                    + Zahl(aussen!.Value.Wert) + " °C");
+            }
+            if (merker.Lueftet && innen.Value.Wert > anlage.NachtauskuehlungZiel)
+            {
+                return new Lage(motor, Stufe.Lueftung, anlage.Lueftungsposition, null,
+                    "Nachtauskuehlung laeuft, drinnen " + Zahl(innen.Value.Wert) + " °C");
+            }
+            if (merker.Lueftet)
+            {
+                merker.Lueftet = false;
+                return new Lage(motor, Stufe.Lueftung, 0, null,
+                    "Nachtauskuehlung beendet - drinnen " + Zahl(innen.Value.Wert) + " °C erreicht");
+            }
+        }
 
         if (!merker.Lueftet && innen.Value.Wert >= anlage.LueftungAb && draussenKuehler)
         {

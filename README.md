@@ -17,13 +17,25 @@ sind.
 Das ist der Sinn dieses Programms: es hält die Regeln an einer Stelle, und es
 sagt bei jedem Antrieb dazu, **warum** er gerade dort steht, wo er steht.
 
-## Zwei Reiter, und das ist Absicht
+## Vier Seiten, und das ist Absicht
 
-Vorn **Bedienung**, dahinter **Konfiguration**. Wer den Wintergarten benutzt,
-will wissen, ob die Markise gleich ausfährt. Wer ihn eingerichtet hat, will
-Gruppenadressen eintragen. Das sind zwei verschiedene Leute mit zwei
-verschiedenen Fragen, und eine Oberfläche, die beides mischt, bedient keinen
-von beiden.
+Drei für den Endkunden, eine für den Errichter:
+
+| Seite | Beantwortet |
+|---|---|
+| **Bedienung** | Was ist gerade, und was passiert als Nächstes? |
+| **Automatik** | Was tut die Steuerung von selbst, und warum? |
+| **Verlauf** | Wie war es die letzten Tage — und wann hat die Steuerung eingegriffen? |
+| **Konfiguration** | Anschluss, Antriebe, Grenzen, Schaltzeiten |
+
+Wer den Wintergarten benutzt, will wissen, ob die Markise gleich ausfährt. Wer
+ihn eingerichtet hat, will Gruppenadressen eintragen. Das sind zwei
+verschiedene Leute mit zwei verschiedenen Fragen, und eine Oberfläche, die
+beides mischt, bedient keinen von beiden.
+
+Die Bedienseite passt **ohne Scrollen** auf einen Bildschirm: Statusband,
+Wetterzeile, darunter Sonne und Antriebe nebeneinander. Wer sehen will, ob die
+Markise draußen ist, soll nicht erst rollen müssen.
 
 Gatewayadresse, Verbinden, Projektimport und Dienst liegen deshalb **nicht** in
 der Kopfzeile, sondern unter Konfiguration → Anschluss. Eine Gatewayadresse
@@ -79,6 +91,38 @@ Dazu drei Knöpfe je Kachel: Auf, Stopp, Ab. Ein Handgriff hält die Automatik
 für zwei Stunden zurück — und schreibt das in den Grund, damit niemand das
 Programm für kaputt hält.
 
+## Die Seite Automatik
+
+Eine Karte je Regel: Sinnbild, Schalter, zwei bis vier Sätze Erklärung — und
+darunter in einer Zeile, was die Regel **gerade** tut. „Wirkt gerade auf 2
+Antriebe" schafft Vertrauen, „ist eingeschaltet" nicht.
+
+Erklärt wird dort, wo der Schalter sitzt, und nicht in einer Anleitung, die
+niemand liest. Denn die Frage kommt beim Schalter: „Warum ist die Markise im
+Winter oben, obwohl die Sonne scheint?"
+
+## Der Verlauf
+
+Innen- und Außentemperatur, Wind und Helligkeit als Kurven über heute,
+24 Stunden, 7 oder 30 Tage — und **darüber die Eingriffe der Steuerung** als
+senkrechte Striche, je Regel in ihrer Farbe, mit Zeit und Grund im
+Kurzhinweis.
+
+Das ist der Punkt an der Überblendung: eine Kurve allein beantwortet die Frage
+nicht. „Am Dienstag war es doch heiß — warum war die Markise oben?" lässt sich
+nur beantworten, wenn man sieht, dass um 11:20 ein Windalarm kam.
+
+Jede Kurve hat ihre **eigene Skala**, der Bereich steht in der Beschriftung.
+Grad, Meter je Sekunde und Lux in eine Achse zu zwingen macht aus der
+Helligkeit einen Strich am oberen Rand und aus der Temperatur eine Linie am
+unteren.
+
+Aufgezeichnet wird je Minute in eine Textdatei je Monat, dazu die Eingriffe in
+einer zweiten. Ein Langzeittrend ist erst einer, wenn er einen Neustart
+überlebt — und die Dateien lassen sich mit jedem Tabellenprogramm öffnen. Eine
+Lücke bleibt eine Lücke: sie zu überbrücken hieße, einen Messwert zu erfinden,
+den es nie gab.
+
 ## Die Regeln
 
 Es gibt eine **Rangfolge**, und sie ist die Sicherheitsvorschrift des
@@ -93,6 +137,25 @@ Programms:
 | 5 | **Beschattung** | nach Sonnenstand und Helligkeit |
 | 6 | **Lüftung** | Fenster nach Innentemperatur |
 | 7 | **Zeitschaltuhr** | feste Zeiten und Astro-Zeiten |
+
+Dazu drei Regeln, die mitdenken statt nur zu reagieren:
+
+**Wärmegewinn.** An kalten Tagen wird nicht beschattet, solange es drinnen
+kühl ist. Ein Wintergarten ist im Winter eine Heizung — wer im Januar bei
+Sonnenschein die Markise ausfährt, weil es hell genug ist, wirft die einzige
+kostenlose Wärme des Tages weg und heizt abends nach. Beides muss stimmen:
+draußen kalt **und** drinnen kühl. Ein Wintergarten mit 26 Grad braucht auch im
+Februar Schatten.
+
+**Hitzevorsorge.** Sagt die Vorhersage einen heißen Tag an, wird früher
+beschattet — bei weniger Helligkeit. Wer erst beschattet, wenn es drinnen warm
+ist, kommt zu spät: die Wärme steckt dann in Boden und Möbeln und geht den
+ganzen Abend nicht mehr heraus.
+
+**Nachtauskühlung.** Nach einem heißen Tag werden die Fenster nachts geöffnet,
+solange es draußen kühler ist — bis die Zieltemperatur erreicht ist. Das ist
+die wirksamste Kühlung, die ein Wintergarten hat, und sie kostet nichts.
+Tagsüber bringt Lüften wenig; draußen ist es dann wärmer.
 
 Eine ausgefahrene Markise im Sturm ist ein Schaden, eine unbeschattete Scheibe
 ist keiner. Deshalb steht Wind ganz oben — auch über dem Handgriff.
@@ -273,7 +336,7 @@ src\REGOwintergarden\
   Model\      Antriebe, Wetter, Sonnenstand, Regeln, Zeiten - reine Logik
   App\        Bus, Vorhersage, Einstellungen, Ablauf
   Service\    Windows-Dienst: Geruest ueber advapi32
-  Ui\         Fenster, Kompass, Sinnbilder
+  Ui\         Fenster, Kompass, Sinnbilder, Verlaufsgrafik
 tests\REGOwintergarden.Tests\
 ```
 

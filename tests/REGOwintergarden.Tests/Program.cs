@@ -91,6 +91,8 @@ public static class Program
         Zeiten();
         Vorhersage();
         Werte();
+        Klugheit();
+        Verlauf();
         Oberflaeche();
         Symbol();
 
@@ -594,6 +596,163 @@ public static class Program
     }
 
     // ===================================================================
+    // Waermegewinn, Nachtauskuehlung, Hitzevorsorge
+    // ===================================================================
+
+    private static void Klugheit()
+    {
+        Check.Abschnitt("Waermegewinn und Nachtauskuehlung");
+
+        var (anlage, _) = Wintergarten();
+        var jetzt = new DateTime(2026, 1, 15, 12, 0, 0);
+        var sonne = new Sonnenstand(180, 20, null, null);
+
+        // Winter: draussen kalt, drinnen kuehl - die Sonne darf heizen.
+        var automatik = new Automatik();
+        var winter = automatik.Bewerten(anlage, Lage(jetzt, aussen: 4, innen: 18, hell: 80000), sonne, jetzt)[0];
+        Check.Gleich(Stufe.Frei, winter.Stufe, "im Winter wird bei kuehlem Raum nicht beschattet");
+        Check.Das(winter.Grund.Contains("Waermegewinn"), "und der Grund sagt warum");
+
+        // Auch im Winter: ist es drinnen warm, wird beschattet.
+        var automatik2 = new Automatik();
+        automatik2.Bewerten(anlage, Lage(jetzt, aussen: 4, innen: 26, hell: 80000), sonne, jetzt);
+        var spaeter = jetzt.AddMinutes(4);
+        var warm = automatik2.Bewerten(anlage, Lage(spaeter, aussen: 4, innen: 26, hell: 80000),
+            sonne, spaeter)[0];
+        Check.Gleich(Stufe.Beschattung, warm.Stufe, "bei warmem Raum gilt der Waermegewinn nicht mehr");
+
+        // Abgeschaltet zaehlt er nicht.
+        anlage.WaermegewinnAktiv = false;
+        var automatik3 = new Automatik();
+        automatik3.Bewerten(anlage, Lage(jetzt, aussen: 4, innen: 18, hell: 80000), sonne, jetzt);
+        var ohne = automatik3.Bewerten(anlage, Lage(spaeter, aussen: 4, innen: 18, hell: 80000),
+            sonne, spaeter)[0];
+        Check.Gleich(Stufe.Beschattung, ohne.Stufe, "abgeschaltet wird auch im Winter beschattet");
+        anlage.WaermegewinnAktiv = true;
+
+        // Hitzevorsorge: ein angesagter heisser Tag senkt die Schwelle.
+        var sommer = new DateTime(2026, 7, 1, 9, 0, 0);
+        var knapp = 30000.0;   // unter der Schwelle von 35000, ueber 35000 * 0,7
+        var automatik4 = new Automatik();
+        automatik4.Bewerten(anlage, Lage(sommer, hell: knapp, innen: 20), sonne, sommer);
+        var ohneVorhersage = automatik4.Bewerten(anlage, Lage(sommer.AddMinutes(4), hell: knapp, innen: 20),
+            sonne, sommer.AddMinutes(4))[0];
+        Check.Gleich(Stufe.Frei, ohneVorhersage.Stufe, "ohne Vorhersage reicht die Helligkeit nicht");
+
+        anlage.Vorhersage = new Vorhersage { Stand = sommer, Hoechsttemperatur = 33, Quelle = "Pruefung" };
+        var automatik5 = new Automatik();
+        automatik5.Bewerten(anlage, Lage(sommer, hell: knapp, innen: 20), sonne, sommer);
+        var mitVorhersage = automatik5.Bewerten(anlage, Lage(sommer.AddMinutes(4), hell: knapp, innen: 20),
+            sonne, sommer.AddMinutes(4))[0];
+        Check.Gleich(Stufe.Beschattung, mitVorhersage.Stufe, "ein angesagter heisser Tag beschattet frueher");
+        Check.Das(mitVorhersage.Grund.Contains("heisser Tag"), "und sagt es dazu");
+        anlage.Vorhersage = null;
+
+        // Nachtauskuehlung: nachts, drinnen warm, draussen kuehler.
+        var fensteranlage = new Anlage { NachtauskuehlungAb = 24, NachtauskuehlungZiel = 21 };
+        fensteranlage.Motoren.Add(new Motor
+        {
+            Name = "Dachfenster",
+            Art = Antriebsart.Fenster,
+            LueftungAktiv = true,
+            BeschattungAktiv = false,
+        });
+
+        var nacht = new DateTime(2026, 7, 1, 23, 0, 0);
+        var dunkel = new Sonnenstand(0, -12, null, null);
+        var automatik6 = new Automatik();
+        var kuehlung = automatik6.Bewerten(fensteranlage, Lage(nacht, innen: 27, aussen: 18), dunkel, nacht)[0];
+        Check.Gleich(Stufe.Lueftung, kuehlung.Stufe, "nachts wird ausgekuehlt");
+        Check.Das(kuehlung.Grund.Contains("Nachtauskuehlung"), "und der Grund nennt sie");
+
+        // Bei Tag gilt sie nicht - da ist es draussen waermer.
+        var automatik7 = new Automatik();
+        var tags = new Sonnenstand(180, 40, null, null);
+        var mittags = automatik7.Bewerten(fensteranlage, Lage(nacht, innen: 25, aussen: 19), tags, nacht)[0];
+        Check.Das(!mittags.Grund.Contains("Nachtauskuehlung"), "am Tag greift die Nachtauskuehlung nicht");
+
+        // Ist das Ziel erreicht, wird geschlossen.
+        var spaetnacht = nacht.AddHours(3);
+        var fertig = automatik6.Bewerten(fensteranlage, Lage(spaetnacht, innen: 20, aussen: 16),
+            dunkel, spaetnacht)[0];
+        Check.Gleich(0.0, fertig.Ziel, "bei erreichtem Ziel wird geschlossen");
+
+        // Und Regen schlaegt auch die Nachtauskuehlung.
+        var automatik8 = new Automatik();
+        var nass = automatik8.Bewerten(fensteranlage, Lage(nacht, innen: 27, aussen: 18, regen: true),
+            dunkel, nacht)[0];
+        Check.Gleich(Stufe.Regen, nass.Stufe, "bei Regen bleibt das Fenster zu");
+    }
+
+    // ===================================================================
+    // Aufzeichnung
+    // ===================================================================
+
+    private static void Verlauf()
+    {
+        Check.Abschnitt("Aufzeichnung");
+
+        var ordner = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "REGOwintergarden-verlauf-" + Guid.NewGuid().ToString("N"));
+        var verlauf = new Aufzeichnung(ordner) { Abstand = TimeSpan.Zero };
+
+        var start = new DateTime(2026, 7, 1, 12, 0, 0);
+        for (var i = 0; i < 10; i++)
+        {
+            var zeit = start.AddMinutes(i);
+            verlauf.Merken(new Wetterlage
+            {
+                Innen = new Messwert(20 + i, zeit),
+                Aussen = new Messwert(15, zeit),
+                Wind = new Messwert(3.5, zeit),
+                HellSued = new Messwert(40000, zeit),
+                Regen = new Messwert(i == 5 ? 1 : 0, zeit),
+                Windalarm = new Messwert(0, zeit),
+            }, zeit);
+        }
+        verlauf.Merken(new Ereignis(start.AddMinutes(3), "Markise Sued", Stufe.Beschattung,
+            "Sonne aus 190° auf 180°; Strichpunkt; und Umbruch", 100));
+
+        var gelesen = verlauf.Messwerte(start.AddMinutes(-1), start.AddMinutes(20));
+        Check.Gleich(10, gelesen.Count, "zehn Messpunkte geschrieben und gelesen");
+        Check.Nahe(20, gelesen[0].Innen!.Value, 0.01, "der erste Innenwert stimmt");
+        Check.Nahe(29, gelesen[9].Innen!.Value, 0.01, "der letzte auch");
+        Check.Das(gelesen[5].Regen, "und der Schauer steht drin");
+
+        var teil = verlauf.Messwerte(start.AddMinutes(3), start.AddMinutes(5));
+        Check.Gleich(3, teil.Count, "ein Ausschnitt liefert nur seinen Zeitraum");
+
+        var ereignisse = verlauf.Ereignisse(start, start.AddHours(1));
+        Check.Gleich(1, ereignisse.Count, "ein Ereignis gelesen");
+        Check.Gleich(Stufe.Beschattung, ereignisse[0].Stufe, "mit seiner Stufe");
+        Check.Das(!ereignisse[0].Grund.Contains(';'), "Strichpunkte im Grund zerlegen das Format nicht");
+
+        // Ein Wert, den es nie gab, bleibt leer - und wird auch leer gelesen.
+        var luecke = new Aufzeichnung(ordner) { Abstand = TimeSpan.Zero };
+        var spaeter = start.AddHours(2);
+        luecke.Merken(new Wetterlage { Innen = new Messwert(22, spaeter) }, spaeter);
+        var mitLuecke = luecke.Messwerte(spaeter.AddMinutes(-1), spaeter.AddMinutes(1));
+        Check.Gleich(1, mitLuecke.Count, "auch ein einzelner Punkt kommt zurueck");
+        Check.Das(mitLuecke[0].Aussen is null, "ein fehlender Wert bleibt fehlend");
+
+        // Ausduennen: aus tausend Punkten hundert, ohne die Zeitfolge zu
+        // verdrehen.
+        var viele = new List<Messpunkt>();
+        for (var i = 0; i < 1000; i++)
+        {
+            viele.Add(new Messpunkt(start.AddMinutes(i), i, null, null, null, i % 100 == 0, false));
+        }
+        var duenn = Aufzeichnung.Ausduennen(viele, 100);
+        Check.Gleich(100, duenn.Count, "auf hundert Punkte ausgeduennt");
+        Check.Das(duenn[0].Zeit < duenn[^1].Zeit, "die Zeitfolge bleibt");
+        Check.Das(duenn[0].Innen < duenn[^1].Innen, "und der Verlauf auch");
+        Check.Das(Aufzeichnung.Ausduennen(viele, 5000).Count == 1000, "weniger als gefordert bleibt unveraendert");
+
+        try { System.IO.Directory.Delete(ordner, recursive: true); }
+        catch (System.IO.IOException) { }
+    }
+
+    // ===================================================================
     // Die Oberflaeche
     // ===================================================================
 
@@ -634,6 +793,32 @@ public static class Program
         {
             Console.WriteLine("  " + ex.GetType().Name + ": " + ex.Message);
             Check.Das(false, "die Bedienseite baut sich auf");
+        }
+
+        try
+        {
+            var automatik = new REGOwintergarden.Ui.Automatikseite(dienst);
+            Check.Das(automatik.Content is not null, "die Automatikseite baut sich auf");
+            automatik.Auffrischen();
+            Check.Das(true, "und laesst sich auffrischen");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("  " + ex.GetType().Name + ": " + ex.Message);
+            Check.Das(false, "die Automatikseite baut sich auf");
+        }
+
+        try
+        {
+            var verlauf = new REGOwintergarden.Ui.Verlaufsseite(dienst);
+            Check.Das(verlauf.Content is not null, "die Verlaufsseite baut sich auf");
+            verlauf.Laden();
+            Check.Das(true, "und laedt ohne Aufzeichnung");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("  " + ex.GetType().Name + ": " + ex.Message);
+            Check.Das(false, "die Verlaufsseite baut sich auf");
         }
 
         try

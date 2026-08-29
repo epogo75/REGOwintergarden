@@ -24,6 +24,8 @@
     <TabControl x:Name="Tabs" Margin="16,16,16,8"
                 Background="{StaticResource Flaeche}" BorderBrush="{StaticResource Linie}">
       <TabItem x:Name="TabBedienung" Header="Bedienung" Padding="16,8" />
+      <TabItem x:Name="TabAutomatik" Header="Automatik" Padding="16,8" />
+      <TabItem x:Name="TabVerlauf" Header="Verlauf" Padding="16,8" />
       <TabItem x:Name="TabKonfiguration" Header="Konfiguration" Padding="16,8" />
     </TabControl>
 

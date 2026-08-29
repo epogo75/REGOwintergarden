@@ -62,11 +62,15 @@ public sealed class Uebersicht : UserControl
 
     private UIElement Aufbau()
     {
-        var aussen = new ScrollViewer
-        {
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Padding = new Thickness(12),
-        };
+        // Ein Raster statt einer Rolle: Statusband, Wetterzeile und darunter
+        // der Rest, der sich den Platz teilt. So passt die Seite auf einen
+        // Bildschirm - und wer den Wintergarten bedient, soll nicht scrollen
+        // muessen, um zu sehen, ob die Markise draussen ist.
+        var aussen = new Grid { Margin = new Thickness(12) };
+        aussen.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        aussen.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        aussen.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
         var spalte = new StackPanel();
 
         // Das Statusband: ein Satz, der sagt, was gerade gilt - und einer,
@@ -95,10 +99,14 @@ public sealed class Uebersicht : UserControl
         spalte.Children.Add(_band);
 
         _kopfzeile.Style = (Style)Application.Current.Resources["Hinweis"];
-        _kopfzeile.Margin = new Thickness(0, 0, 0, 4);
-        spalte.Children.Add(_kopfzeile);
+        _kopfzeile.Margin = new Thickness(0, 6, 0, 0);
+        bandtext.Children.Add(_kopfzeile);
 
-        _automatik.Margin = new Thickness(0, 0, 0, 12);
+        _automatik.Margin = new Thickness(0, 0, 0, 8);
+        _automatik.HorizontalAlignment = HorizontalAlignment.Right;
+        _automatik.VerticalAlignment = VerticalAlignment.Top;
+        DockPanel.SetDock(_automatik, Dock.Right);
+        band.Children.Insert(1, _automatik);
         _automatik.ToolTip = "Aus heisst: es wird nichts von selbst gefahren - auch kein Wind- oder "
                              + "Regenschutz.";
         _automatik.Click += (_, _) =>
@@ -109,18 +117,12 @@ public sealed class Uebersicht : UserControl
             Gespeichert?.Invoke();
             Auffrischen();
         };
-        spalte.Children.Add(_automatik);
 
         _leuchten.Children.Add(_wind);
         _leuchten.Children.Add(_regen);
         _leuchten.Children.Add(_aussen);
         _leuchten.Children.Add(_innen);
         _leuchten.Children.Add(_hell);
-        spalte.Children.Add(_leuchten);
-
-        _vorhersage.Style = (Style)Application.Current.Resources["Hinweis"];
-        _vorhersage.Margin = new Thickness(0, 0, 0, 12);
-        spalte.Children.Add(_vorhersage);
 
         // Sonne und Antriebe nebeneinander: der Kompass erklaert die Kacheln,
         // und die Kacheln erklaeren den Kompass.
@@ -164,19 +166,32 @@ public sealed class Uebersicht : UserControl
         Grid.SetColumn(links, 0);
         reihe.Children.Add(links);
 
-        var rechts = new StackPanel();
-        rechts.Children.Add(new TextBlock
+        var rechts = new DockPanel { LastChildFill = true };
+        var antriebskopf = new TextBlock
         {
             Text = "Antriebe",
             Style = (Style)Application.Current.Resources["Ueberschrift"],
             Margin = new Thickness(0, 0, 0, 4),
+        };
+        DockPanel.SetDock(antriebskopf, Dock.Top);
+        rechts.Children.Add(antriebskopf);
+        rechts.Children.Add(new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = _kacheln,
         });
-        rechts.Children.Add(_kacheln);
         Grid.SetColumn(rechts, 1);
         reihe.Children.Add(rechts);
 
-        spalte.Children.Add(reihe);
-        aussen.Content = spalte;
+        Grid.SetRow(spalte, 0);
+        aussen.Children.Add(spalte);
+
+        Grid.SetRow(_leuchten, 1);
+        aussen.Children.Add(_leuchten);
+
+        Grid.SetRow(reihe, 2);
+        aussen.Children.Add(reihe);
         return aussen;
     }
 

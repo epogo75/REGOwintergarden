@@ -56,6 +56,7 @@ public sealed class Wintergartendienst : IAsyncDisposable
     private readonly Automatik _automatik = new();
     private readonly Zeitschaltuhr _uhr = new();
     private readonly Wetterabruf _wetterabruf = new();
+    private readonly Dictionary<string, Stufe> _letzteStufe = new(StringComparer.Ordinal);
     private readonly string _ordner;
 
     private KnxTunnelClient? _client;
@@ -67,11 +68,15 @@ public sealed class Wintergartendienst : IAsyncDisposable
         Einstellungen = einstellungen;
         _ordner = ordner;
         Directory.CreateDirectory(ordner);
+        Verlauf = new Aufzeichnung(ordner);
 
         if (einstellungen.Projektdatei.Length > 0) ProjektLaden(einstellungen.Projektdatei, out _);
     }
 
     public Einstellungen Einstellungen { get; }
+
+    /// <summary>Die Aufzeichnung fuer den Langzeittrend.</summary>
+    public Aufzeichnung Verlauf { get; }
 
     public Anlage Anlage => Einstellungen.Anlage;
 
@@ -424,6 +429,18 @@ public sealed class Wintergartendienst : IAsyncDisposable
         var wetter = Wetter();
         var lagen = _automatik.Bewerten(anlage, wetter, Sonne, jetzt);
         Lagen = lagen;
+
+        Verlauf.Merken(wetter, jetzt);
+
+        // Nur die Wechsel aufzeichnen, nicht jeden Takt: die Frage lautet
+        // spaeter „wann ist die Beschattung angegangen", nicht „was war um
+        // 14:23:40".
+        foreach (var lage in lagen)
+        {
+            if (_letzteStufe.TryGetValue(lage.Motor.Id, out var vorher) && vorher == lage.Stufe) continue;
+            _letzteStufe[lage.Motor.Id] = lage.Stufe;
+            Verlauf.Merken(new Ereignis(jetzt, lage.Motor.Name, lage.Stufe, lage.Grund, lage.Ziel));
+        }
 
         if (anlage.AutomatikAktiv)
         {
