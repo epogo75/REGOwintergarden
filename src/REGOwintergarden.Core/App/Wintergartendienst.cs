@@ -155,6 +155,17 @@ public sealed class Wintergartendienst : IAsyncDisposable
     public bool IstFern => Fern is not null;
 
     /// <summary>
+    /// Ob der fuehrende Rechner selbst am Bus haengt.
+    ///
+    /// Nachrechnen laesst sich das nicht - er muss es sagen. Und es ist der
+    /// haeufigste Fall von allen: der Pi antwortet, das Gateway ist aus.
+    /// </summary>
+    public bool FernBus { get; private set; }
+
+    /// <summary>Ob beim fuehrenden Rechner die Automatik laeuft.</summary>
+    public bool FernLaeuft { get; private set; }
+
+    /// <summary>
     /// Haengt sich an einen fuehrenden Dienst.
     ///
     /// Danach wird kein KNX-Tunnel mehr geoeffnet: die Rohwerte kommen von
@@ -201,6 +212,9 @@ public sealed class Wintergartendienst : IAsyncDisposable
     /// <summary>Uebernimmt Rohwerte und Handsperren des fuehrenden Dienstes.</summary>
     public void UebernehmenAus(Fernzustand zustand)
     {
+        FernBus = zustand.Bus;
+        FernLaeuft = zustand.Laeuft;
+
         foreach (var wert in zustand.Werte)
         {
             GroupAddress ziel;

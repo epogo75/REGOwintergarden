@@ -31,7 +31,9 @@ public sealed record Fernzustand(
     IReadOnlyList<Fernwert> Werte,
     IReadOnlyDictionary<string, DateTime> Handsperren,
     string Version,
-    string Anlage);
+    string Anlage,
+    bool Bus,
+    bool Laeuft);
 
 /// <summary>
 /// Der Draht zum führenden Dienst - dem auf dem Raspberry Pi.
@@ -186,8 +188,16 @@ public sealed class Fernsteuerung : IDisposable
             }
         }
 
-        return new Fernzustand(werte, sperren, Text(wurzel, "version"), Text(wurzel, "anlage"));
+        // Ob der fuehrende Rechner selbst am Bus haengt, laesst sich hier
+        // nicht nachrechnen - er muss es sagen. Er kann antworten und
+        // trotzdem kein Gateway haben, und das ist der haeufigste Fall von
+        // beiden: der Pi laeuft, das Gateway ist aus.
+        return new Fernzustand(werte, sperren, Text(wurzel, "version"), Text(wurzel, "anlage"),
+            Ja(wurzel, "bus"), Ja(wurzel, "laeuft"));
     }
+
+    private static bool Ja(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var wert) && wert.ValueKind == JsonValueKind.True;
 
     private static string Text(JsonElement element, string name) =>
         element.TryGetProperty(name, out var wert) && wert.ValueKind == JsonValueKind.String

@@ -134,7 +134,16 @@ public static class Webseite
             .Append("</p></div>");
 
         // ---- Wetterleuchten ----
+        //
+        // Vorne die Verbindung: alle anderen Leuchten zeigen Messwerte, und
+        // fehlt der Bus, sind die nicht falsch, sondern gar nicht da. Eine
+        // Anlage, die stillsteht, weil das Gateway aus ist, saehe sonst
+        // genauso ruhig aus wie eine, bei der alles stimmt.
+        var anschluss = Anschlussbild.Bilden(dienst);
         html.Append("<div class=\"reihe\">");
+        Leuchte(html, anschluss.Name, anschluss.Wert, anschluss.Alarm,
+            dienst.IstFern ? Sinnbilder.Haus : Sinnbilder.Warnung, anschluss.Erklaerung,
+            anschluss.Bekannt);
         Leuchte(html, "Wind", Windtext(anlage, wetter, jetzt, out var windAlarm), windAlarm,
             Sinnbilder.Wind);
         Leuchte(html, "Regen", Regentext(anlage, wetter, jetzt, out var nass), nass,
@@ -1044,9 +1053,12 @@ public static class Webseite
     }
 
     private static void Leuchte(StringBuilder html, string name, string wert, bool alarm,
-        string sinnbild)
+        string sinnbild, string hinweis = "", bool bekannt = true)
     {
-        html.Append("<div class=\"leuchte").Append(alarm ? " alarm" : "").Append("\">");
+        html.Append("<div class=\"leuchte").Append(alarm ? " alarm" : "")
+            .Append(bekannt ? "" : " blind").Append('"');
+        if (hinweis.Length > 0) html.Append(" title=\"").Append(Sicher(hinweis)).Append('"');
+        html.Append('>');
         Bild(html, sinnbild, 26);
         html.Append("<div class=\"wert\">").Append(Sicher(wert)).Append("</div>");
         html.Append("<div class=\"klein\">").Append(Sicher(name)).Append("</div></div>");
@@ -1302,6 +1314,7 @@ public static class Webseite
         .leuchte{background:var(--karte);border:1px solid var(--linie);border-radius:6px;
                  padding:10px 14px;min-width:128px}
         .leuchte.alarm{border:2px solid var(--rot)} .leuchte.alarm .wert{color:var(--rot)}
+        .leuchte.blind .wert{color:var(--blass)} .leuchte.blind .sinnbild{color:var(--blass)}
         .wert{font-size:19px}
         .spalten{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
         .links{flex:0 0 320px} .rechts{flex:1 1 460px}

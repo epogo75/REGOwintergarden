@@ -36,6 +36,7 @@ public sealed class Uebersicht : UserControl
     private readonly TextBlock _naechste = new() { TextWrapping = TextWrapping.Wrap };
     private readonly CheckBox _automatik = new() { Content = "Automatik eingeschaltet" };
 
+    private readonly Symbole.Leuchte _anschluss = new(Symbole.Warnung, "KNX-Bus");
     private readonly Symbole.Leuchte _wind = new(Symbole.Wind, "Wind");
     private readonly Symbole.Leuchte _regen = new(Symbole.Regen, "Regen");
     private readonly Symbole.Leuchte _aussen = new(Symbole.Thermometer, "draussen");
@@ -119,6 +120,11 @@ public sealed class Uebersicht : UserControl
             Auffrischen();
         };
 
+        // Vorne die Verbindung: alle anderen Leuchten zeigen Messwerte, und
+        // fehlt der Bus, sind die nicht falsch, sondern gar nicht da. Eine
+        // Anlage, die stillsteht, weil das Gateway aus ist, saehe sonst
+        // genauso ruhig aus wie eine, bei der alles stimmt.
+        _leuchten.Children.Add(_anschluss);
         _leuchten.Children.Add(_wind);
         _leuchten.Children.Add(_regen);
         _leuchten.Children.Add(_aussen);
@@ -319,6 +325,15 @@ public sealed class Uebersicht : UserControl
 
     private void Leuchten(Anlage anlage, Wetterlage wetter, DateTime jetzt)
     {
+        // Bewertet wird im Kern, damit Fenster und Browser dasselbe sagen -
+        // zwei Bewertungen derselben Frage widersprechen sich frueher oder
+        // spaeter, und dann weiss niemand, welcher zu glauben ist.
+        var anschluss = Anschlussbild.Bilden(_dienst);
+        _anschluss.Beschriftung = anschluss.Name;
+        _anschluss.Zeigen(anschluss.Wert, anschluss.Alarm, anschluss.Bekannt);
+        _anschluss.ToolTip = anschluss.Erklaerung + "\n"
+                             + Anschlussbild.Taktalter(_dienst, jetzt);
+
         // Wind: drei Zustaende. Ein fehlender Wert ist kein Windstille-Wert,
         // und die Anzeige sagt das auch so.
         //

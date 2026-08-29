@@ -105,6 +105,17 @@ public static class Symbole
             Child = spalte;
         }
 
+        /// <summary>
+        /// Die Beschriftung unter dem Wert. Aenderbar, weil eine Leuchte je
+        /// nach Betriebsart etwas anderes zeigt: „KNX-Bus", wenn dieses
+        /// Programm selbst steuert, „Server + Bus" in der Fernbedienung.
+        /// </summary>
+        public string Beschriftung
+        {
+            get => _name.Text;
+            set => _name.Text = value;
+        }
+
         /// <summary>Setzt Wert und Zustand. <paramref name="alarm"/> faerbt rot.</summary>
         public void Zeigen(string wert, bool alarm, bool bekannt = true)
         {

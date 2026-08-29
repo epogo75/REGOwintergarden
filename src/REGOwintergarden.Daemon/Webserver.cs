@@ -555,6 +555,12 @@ public sealed class Webserver : IDisposable
             schreiber.WriteString("anlage", _dienst.Anlage.Name);
             schreiber.WriteString("zeit", DateTime.Now.ToString("O", CultureInfo.InvariantCulture));
 
+            // Ob hier ein Bus haengt, kann drueben niemand nachrechnen - also
+            // wird es gesagt. Ein antwortender Dienst ohne Gateway ist der
+            // haeufigste Stoerfall und sieht sonst aus wie alles in Ordnung.
+            schreiber.WriteBoolean("bus", _dienst.Stand == Busstand.Verbunden);
+            schreiber.WriteBoolean("laeuft", _dienst.Laeuft);
+
             schreiber.WriteStartArray("werte");
             foreach (var wert in _dienst.Buswerte())
             {

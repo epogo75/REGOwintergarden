@@ -1130,6 +1130,7 @@ public static class Program
                    + "],\"handsperren\":{\"markise\":\"2026-07-01T14:30:00\"}}";
 
         var zustand = Fernsteuerung.Lesen(json);
+        Check.Das(!zustand.Bus, "ohne Angabe gilt: der fuehrende Rechner hat keinen Bus");
         Check.Gleich(2, zustand.Werte.Count, "beide Werte kommen an");
         Check.Gleich("Wintergarten", zustand.Anlage, "der Anlagenname auch");
         Check.Das(zustand.Werte[0].Wert.IsSmall, "das Bit bleibt die kurze Form");
@@ -1179,6 +1180,21 @@ public static class Program
 
         Check.Das(!meine.AnlageUebernehmen("kein JSON", out var klage), "Unfug wird abgelehnt");
         Check.Das(klage.Length > 0, "und begruendet");
+
+        // ---- Die Kachel fuer den Anschluss ----
+        //
+        // Sie beantwortet zwei Fragen auf einmal, und die Reihenfolge ist der
+        // Punkt: ein Server, der antwortet, aber kein Gateway hat, ist der
+        // haeufigste Stoerfall - und sieht sonst aus wie alles in Ordnung.
+        var allein = Anschlussbild.Bilden(zweiter);
+        Check.Gleich("KNX-Bus", allein.Name, "wer selbst steuert, sieht seinen Bus");
+        Check.Gleich("getrennt", allein.Wert, "und dass er getrennt ist");
+        Check.Das(allein.Alarm, "das ist eine Warnung wert");
+
+        var mitBus = Fernsteuerung.Lesen(json.Replace("\"version\":\"1.0\"",
+            "\"version\":\"1.0\",\"bus\":true,\"laeuft\":true", StringComparison.Ordinal));
+        Check.Das(mitBus.Bus, "der fuehrende Rechner meldet seinen Bus");
+        Check.Das(mitBus.Laeuft, "und dass er rechnet");
 
         zweiter.DisposeAsync().AsTask().GetAwaiter().GetResult();
         try { System.IO.Directory.Delete(ordner, recursive: true); }
