@@ -88,7 +88,15 @@ public static class Webseite
         Rahmen(html, anlage, "/", 30);
 
         // ---- Statusband ----
-        html.Append("<div class=\"band ").Append(ton switch
+        //
+        // Ein Band, nicht zwei. Ob der Dienst rechnet, steht in der kleinen
+        // Zeile mit - solange die Antwort „ja" lautet, ist es keine
+        // Schlagzeile wert. Erst wenn ein Takt ausbleibt, wird daraus eine
+        // eigene Zeile in Rot, und dann faellt sie auch auf.
+        var dienstton = Dienstton(dienst, jetzt);
+        var stoerung = string.Equals(dienstton, "warn", StringComparison.Ordinal);
+
+        html.Append("<div class=\"band ").Append(stoerung ? "warn" : ton switch
         {
             Lagebericht.Ton.Warnung => "warn",
             Lagebericht.Ton.Taetig => "aktiv",
@@ -97,23 +105,18 @@ public static class Webseite
         html.Append("<h1>").Append(Sicher(ueberschrift)).Append("</h1>");
         html.Append("<p>").Append(Sicher(Lagebericht.Erklaerung(anlage, lagen, wetter, sonne, jetzt)))
             .Append("</p>");
+        if (stoerung)
+        {
+            html.Append("<p class=\"stoerung\">").Append(Sicher(Dienstzeile(dienst, jetzt)))
+                .Append("</p>");
+        }
         html.Append("<p class=\"klein\">").Append(Sicher(anlage.Name)).Append(" &middot; ")
             .Append(lagen.Count.ToString(CultureInfo.InvariantCulture)).Append(" Antriebe &middot; ")
             .Append(dienst.Stand == Busstand.Verbunden ? "mit dem Bus verbunden" : "keine Busverbindung")
+            .Append(" &middot; ").Append(Sicher(Dienstzeile(dienst, jetzt)))
+            .Append(" Seit ").Append(Sicher(Dauer(jetzt - dienst.Gestartet)))
+            .Append(", Fassung ").Append(Sicher(Programmstand.Version))
             .Append(" &middot; ").Append(jetzt.ToString("dd.MM.yyyy HH:mm:ss", CultureInfo.InvariantCulture))
-            .Append("</p></div>");
-
-        // ---- Laeuft der Dienst ----
-        //
-        // Die Frage, die man einem Geraet ohne Bildschirm wirklich stellt.
-        // Nicht „laeuft der Prozess" - der laeuft auch, wenn die Schleife
-        // haengt -, sondern „wann hat er zuletzt gerechnet".
-        html.Append("<div class=\"band ").Append(Dienstton(dienst, jetzt)).Append("\">");
-        html.Append("<p><b>").Append(Sicher(Dienstzeile(dienst, jetzt))).Append("</b></p>");
-        html.Append("<p class=\"klein\">L&auml;uft seit ")
-            .Append(dienst.Gestartet.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture))
-            .Append(" &middot; ").Append(Sicher(Dauer(jetzt - dienst.Gestartet)))
-            .Append(" &middot; Fassung ").Append(Sicher(Programmstand.Version))
             .Append("</p></div>");
 
         // ---- Wetterleuchten ----
@@ -878,6 +881,7 @@ public static class Webseite
         .regel.aus .tut{color:var(--blass)}
         .regel form{margin:8px 0 0}
         .gut{color:var(--gruen)}
+        .stoerung{color:var(--rot);font-weight:600}
         .blass{color:var(--blass);font-style:normal}
         .zeitraum a{margin-right:12px;font-size:13px;color:var(--leise)}
         .zeitraum a.hier{color:var(--schrift);font-weight:600}

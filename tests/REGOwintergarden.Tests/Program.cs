@@ -994,7 +994,7 @@ public static class Program
                     REGOwintergarden.Web.Webseite.Dienstzeile(dienst, zeitpunkt)),
                 StringComparison.Ordinal),
             "die Seite sagt, ob der Dienst laeuft");
-        Check.Das(seite.Contains("uft seit", StringComparison.Ordinal), "und seit wann");
+        Check.Das(seite.Contains("Seit ", StringComparison.Ordinal), "und seit wann");
         Check.Das(!seite.Contains("&amp;auml;", StringComparison.Ordinal),
             "und zwar ohne doppelt entschaerfte Umlaute");
 
