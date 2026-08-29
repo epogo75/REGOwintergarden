@@ -1,0 +1,19 @@
+# --- Bauergebnisse ---
+bin/
+obj/
+
+# Die eigenstaendige 68-MB-EXE aus publish.ps1. Wird bei Bedarf neu gebaut
+# und hat in der Versionsgeschichte nichts verloren.
+dist/
+
+# --- Werkzeuge / Betriebssystem ---
+.vs/
+.idea/
+*.user
+*.suo
+Thumbs.db
+desktop.ini
+
+# app.ico ist ausdruecklich NICHT ausgeschlossen: die Datei wird zwar aus
+# Ui\AppIcons.cs erzeugt (make-icon.ps1), der Build braucht sie aber, bevor
+# irgendetwas laufen kann, das sie erzeugen koennte. Siehe README.

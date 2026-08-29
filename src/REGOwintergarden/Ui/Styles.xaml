@@ -1,0 +1,108 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Eigene Stile immer mit x:Key, nie ohne: ein Stil ohne Schluessel gilt
+       fuer jedes Element seiner Art im ganzen Programm. -->
+
+  <!-- Die Palette von REGObase: grauer Grund, weisse Karten, gruener Akzent.
+       Gut und Betont zeigen auf denselben Gruenton - zwei Namen, damit die
+       Fenster sagen koennen, was sie meinen, nicht welche Farbe sie wollen. -->
+  <SolidColorBrush x:Key="Flaeche" Color="#F7F7F6" />
+  <SolidColorBrush x:Key="Karte" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Feld" Color="#F5F6F7" />
+  <SolidColorBrush x:Key="Ruhe" Color="#E7E7E4" />
+  <SolidColorBrush x:Key="Schrift" Color="#1A1A1C" />
+  <SolidColorBrush x:Key="Nebenschrift" Color="#65656D" />
+  <SolidColorBrush x:Key="Blass" Color="#8B8B93" />
+  <SolidColorBrush x:Key="Linie" Color="#DCDCDC" />
+  <SolidColorBrush x:Key="Fehler" Color="#CF222E" />
+  <SolidColorBrush x:Key="Gut" Color="#4D7616" />
+  <SolidColorBrush x:Key="Betont" Color="#4D7616" />
+
+  <!-- Abstandsraster: 4, 8, 12, 16. Fensterrand 16, Abschnitte 12 auseinander,
+       Zusammengehoeriges 8, Kleinabstand 4. Knoepfe, Eingabefelder und
+       Auswahllisten sind mindestens 30 hoch, damit eine Reihe eine Linie
+       ergibt und nichts huepft. -->
+
+  <Style x:Key="Ueberschrift" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Schrift}" />
+    <Setter Property="Margin" Value="0,0,0,4" />
+  </Style>
+
+  <Style x:Key="Hinweis" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Nebenschrift}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- Beschriftung links neben einem Feld, auf dessen Mitte ausgerichtet. -->
+  <Style x:Key="Beschriftung" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Schrift}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+  </Style>
+
+  <!-- MinWidth schlaegt eine kleinere explizite Width: wer einen schmaleren
+       Knopf will, muss MinWidth="0" mitsetzen. -->
+  <Style x:Key="Knopf" TargetType="Button">
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="MinWidth" Value="88" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <!-- Der eine Knopf je Fenster, der die Hauptsache tut. -->
+  <Style x:Key="KnopfStark" TargetType="Button" BasedOn="{StaticResource Knopf}">
+    <Setter Property="Background" Value="{StaticResource Betont}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Betont}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <Style x:Key="Eingabefeld" TargetType="TextBox">
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style x:Key="Adressfeld" TargetType="TextBox" BasedOn="{StaticResource Eingabefeld}">
+    <Setter Property="FontFamily" Value="Consolas" />
+  </Style>
+
+  <Style x:Key="Auswahlfeld" TargetType="ComboBox">
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <!-- Eine Karte fasst eine Gruppe: weisse Flaeche auf grauem Grund. -->
+  <Style x:Key="Gruppenkarte" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Karte}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Linie}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+
+  <!-- Der Rahmen um eine Liste. Das schmale Polster laesst die eckige Liste
+       an den runden Ecken der Karte nicht ueberstehen. -->
+  <Style x:Key="Listenkarte" TargetType="Border" BasedOn="{StaticResource Gruppenkarte}">
+    <Setter Property="Padding" Value="4" />
+  </Style>
+
+  <!-- Trennt die Knopfreihe am unteren Rand eines Dialogs vom Inhalt. -->
+  <Style x:Key="Fussleiste" TargetType="Border">
+    <Setter Property="BorderBrush" Value="{StaticResource Linie}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Margin" Value="0,12,0,0" />
+    <Setter Property="Padding" Value="0,12,0,0" />
+  </Style>
+
+  <Style x:Key="Protokoll" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="Consolas" />
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+
+</ResourceDictionary>

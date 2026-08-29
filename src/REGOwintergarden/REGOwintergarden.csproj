@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <!-- Bewusst aus, wie in den Schwesterprojekten: mit UseWindowsForms
+         ersetzt das SDK den ueblichen Satz impliziter Usings durch einen
+         eigenen, und dann werden Button, MessageBox und Application in jeder
+         WPF-Datei mehrdeutig oder, schlimmer, still die WinForms-Variante. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- Nur wegen des Symbols: die .ico wird gezeichnet, und dafuer gibt es
+         in WPF keinen Weg, der ohne Bildschirm funktioniert - RenderTargetBitmap
+         liefert in einem Programm ohne Fenster ein leeres Bild, und zwar ohne
+         Fehlermeldung. System.Drawing zeichnet dagegen auch dort. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>REGOwintergarden</RootNamespace>
+    <AssemblyName>REGOwintergarden</AssemblyName>
+    <!-- Eigener Einstieg statt des von App.xaml erzeugten: dasselbe Programm
+         laeuft in zwei Rollen, mit Oberflaeche und als Windows-Dienst, und
+         die Weiche muss fallen, bevor WPF ueberhaupt anlaeuft. -->
+    <StartupObject>REGOwintergarden.Program</StartupObject>
+
+    <!-- Die Baunummer ist das Datum: 1.0.290826 ist der Stand vom
+         29.08.2026. Sie steht im Fenstertitel und im Ueber-Feld, weil im
+         Ablageordner regelmaessig mehrere Fassungen nebeneinander liegen.
+         Version bleibt bei 1.0.0 - eine Assemblyversion darf je Stelle
+         hoechstens 65534 sein. -->
+    <VersionPrefix>1.0</VersionPrefix>
+    <BuildStamp Condition="'$(BuildStamp)' == ''">$([System.DateTime]::Now.ToString("ddMMyy"))</BuildStamp>
+    <Version>1.0.0</Version>
+    <InformationalVersion>$(VersionPrefix).$(BuildStamp)</InformationalVersion>
+    <Company>Stephan Ruf</Company>
+    <Authors>Stephan Ruf</Authors>
+    <Product>REGOwintergarden</Product>
+    <Copyright>Copyright 2026 Stephan Ruf</Copyright>
+    <Description>Wintergartensteuerung ueber KNX: Beschattung, Lueftung, Wetterschutz.</Description>
+
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Kein NuGet-Paket. Die KNX-Schicht liegt hier als Kopie aus
+       REGOsimulator/REGOcontroller, damit dieses Programm eine
+       eigenstaendige EXE bleibt. Sie ist dort gegen ein nachgebildetes
+       Gateway abgesichert; eine gemeinsame Bibliothek waere sauberer, wuerde
+       aber aus eigenstaendigen Programmen abhaengige machen. -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="REGOwintergarden.Tests" />
+  </ItemGroup>
+
+</Project>

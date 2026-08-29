@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>REGOwintergarden.Tests</RootNamespace>
+    <AssemblyName>REGOwintergarden.Tests</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Kein Testframework: die Pruefungen laufen als gewoehnliches Programm
+         und melden ueber den Rueckgabewert. Das haelt das Projekt frei von
+         NuGet-Paketen - wie in den Schwesterprojekten. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\REGOwintergarden\REGOwintergarden.csproj" />
+  </ItemGroup>
+
+</Project>
