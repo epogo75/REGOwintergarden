@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <!-- Bewusst aus, wie in den Schwesterprojekten: mit UseWindowsForms
          ersetzt das SDK den ueblichen Satz impliziter Usings durch einen
