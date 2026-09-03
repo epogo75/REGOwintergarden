@@ -87,6 +87,52 @@ if ($LASTEXITCODE -ne 0) { throw "Veroeffentlichen fehlgeschlagen." }
 # verloren - sie waere die zweite Datei, die niemand braucht.
 Remove-Item (Join-Path $OutputDirectory 'REGOwintergarden.pdb') -Force -ErrorAction SilentlyContinue
 
+
+# EINE NOTIZ IN DEN ORDNER, weil er auf das NAS gespiegelt wird.
+$liesmich = @'
+# REGOwintergarden
+
+Steuert einen Wintergarten ueber KNX: Beschattung nach Sonnenstand.
+
+## Starten
+
+**REGOwintergarden.exe** anklicken.
+
+**Verlangt installiertes .NET 10.** Fehlt es, sagt Windows das beim Start.
+Das Installationsprogramm liegt auf dem NAS unter
+`dev\_.NET10\windowsdesktop-runtime-10-win-x64.exe` -- von Microsoft
+signiert, einmal installieren, kein Neustart noetig.
+
+## Warum die Datei so klein ist
+
+Bis zum 03.09.2026 war sie rund 70 MB gross: die .NET-Laufzeit steckte mit
+drin, damit sie ohne Installation laeuft. Dann wies Windows 11 eine solche
+Datei ab -- dieselbe, die vorher lief.
+
+Ursache ist **Smart App Control**: es blockt unsignierte Programme ohne Ruf in
+der Microsoft-Cloud, und jeder neue Bau hat einen neuen Hash und ist damit
+unbekannt. Seitdem wird die Laufzeit vorausgesetzt statt mitgeliefert.
+
+Nicht geholfen haetten: selbst signieren (Smart App Control ignoriert lokal
+vertrauenswuerdige Zertifikate), ein Defender-Ausschluss (eigener Mechanismus)
+oder das Entfernen der Herkunftsmarkierung.
+
+## Wenn Windows die Datei trotzdem abweist
+
+Sie bleibt eine unsignierte EXE. Beim Kopieren **vom NAS** bekommt sie
+ausserdem eine Herkunftsmarkierung, und Windows prueft dann schaerfer -- ein
+Fehlalarm ist moeglich.
+
+Zwei Wege:
+
+- Die Herkunftsmarkierung entfernen:
+  `Unblock-File .\REGOwintergarden.exe`
+- Oder eigenstaendig bauen (`publish.ps1 -Eigenstaendig`): dann ist die
+  Laufzeit wieder drin, die Datei rund 70 MB gross -- und laeuft auf einem
+  Rechner, auf dem nichts installiert werden darf.
+'@
+
+$liesmich.Replace('`', [string][char]96) | Set-Content (Join-Path $OutputDirectory 'LIESMICH.md') -Encoding UTF8
 $exe = Join-Path $OutputDirectory 'REGOwintergarden.exe'
 # Die Fassung mit ausgeben: auf dem Ablageordner liegen regelmaessig mehrere
 # .exe nebeneinander, weil sich eine laufende nicht ueberschreiben laesst.
