@@ -1,25 +1,45 @@
 <#
 .SYNOPSIS
-  Baut den REGOwintergarden als einzelne, eigenstaendige .exe.
+  Baut REGOwintergarden als eine einzelne .exe nach dist\.
 
 .DESCRIPTION
-  Der gewoehnliche Build erzeugt vier Dateien: .exe (nur ein Starter), .dll
-  (der eigentliche Code), .deps.json und .runtimeconfig.json. Kopiert jemand
-  nur die .exe, passiert beim Doppelklick nichts - ohne Fehlermeldung. Diese
-  Falle raeumt das Skript aus dem Weg: eine Datei, die alles enthaelt, samt
-  .NET-Laufzeit, also auch auf einem Rechner ohne installiertes .NET.
+  EINE Datei, aber RAHMENABHAENGIG: die .NET-Laufzeit steckt seit dem
+  03.09.2026 nicht mehr mit drin, sondern wird installiert vorausgesetzt.
 
-  Das zaehlt hier mehr als anderswo: der Helfer laeuft beim Kunden, oft auf
-  einem Rechner, auf dem sonst nichts installiert werden darf.
+  Grund ist Windows 11 "Smart App Control". Es blockt unsignierte Programme
+  ohne Ruf in der Microsoft-Cloud, und jeder neue Bau hat einen neuen Hash --
+  dieselbe Datei laeuft heute und wird morgen abgewiesen. Bei REGOtvtest und
+  REGOwintergarden ist genau das passiert.
 
-  Preis dafuer sind rund 70 MB und ein etwas langsamerer erster Start
-  (die Laufzeit wird einmalig entpackt).
+  NICHT geholfen haetten: selbst signieren (SAC ignoriert lokal als
+  vertrauenswuerdig eingetragene Zertifikate), ein Defender-Ausschluss
+  (eigener Mechanismus) und das Entfernen der Herkunftsmarkierung (die
+  Dateien trugen gar keine).
 
+  Der Gewinn ist die Groesse: aus rund 70 MB werden unter 1 MB. Das
+  Installationsprogramm liegt auf dem NAS unter dev\_.NET10.
+
+  MIT -Eigenstaendig entsteht wieder die alte Fassung mit eingebauter
+  Laufzeit -- fuer den Kundenbesuch, wo auf dem Rechner nichts installiert
+  werden darf. Der Grund dafuer ist nicht weg, nur nicht mehr die Vorgabe.
 .PARAMETER OutputDirectory
   Zielverzeichnis. Vorgabe: dist\ neben diesem Skript.
 #>
 [CmdletBinding()]
 param(
+  # EIGENSTAENDIG BAUEN -- mit eingebauter .NET-Laufzeit, rund 70 MB.
+  #
+  # Seit 03.09.2026 NICHT mehr die Vorgabe: Windows 11 blockt mit Smart App
+  # Control unsignierte Programme ohne Ruf in der Microsoft-Cloud, und jeder
+  # neue Bau hat einen neuen Hash. Der Betreiber hat entschieden, .NET 10 zu
+  # installieren; das Werkzeug schrumpft dabei von rund 70 MB auf unter 1 MB.
+  #
+  # DER SCHALTER BLEIBT, weil der Grund fuer die alte Fassung nicht weg ist:
+  # beim Kunden steht oft ein Rechner, auf dem nichts installiert werden darf.
+  # Dann diesen Schalter setzen -- und wissen, dass Windows die Datei
+  # abweisen kann.
+  [switch]$Eigenstaendig,
+
   [string]$OutputDirectory
 )
 
@@ -35,12 +55,31 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
   throw "dotnet nicht gefunden. .NET SDK 8 installieren, siehe README."
 }
 
-& dotnet publish (Join-Path $root 'src\REGOwintergarden\REGOwintergarden.csproj') `
-  -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -o $OutputDirectory -v q --nologo
+# EINE DATEI BLEIBT ES, nur ohne eingebaute Laufzeit: PublishSingleFile
+# zusammen mit --self-contained false. Wer den Ordner weitergibt, gibt
+# weiterhin eine Datei weiter.
+$selbst = if ($Eigenstaendig) { 'true' } else { 'false' }
+
+$argumente = @(
+  'publish', (Join-Path $root 'src\REGOwintergarden\REGOwintergarden.csproj'),
+  '-c', 'Release', '-r', 'win-x64', "--self-contained=$selbst",
+  '-p:PublishSingleFile=true',
+  '-p:DebugType=none',
+  '-p:AllowedReferenceRelatedFileExtensions=none'
+)
+
+# Diese beiden gelten NUR fuer die eigenstaendige Fassung. Bei einer
+# rahmenabhaengigen bringt das Buendeln keine nativen Bibliotheken mit (die
+# kommen aus der installierten Laufzeit), und das Komprimieren wird vom SDK
+# abgelehnt.
+if ($Eigenstaendig) {
+  $argumente += '-p:IncludeNativeLibrariesForSelfExtract=true'
+  $argumente += '-p:EnableCompressionInSingleFile=true'
+}
+
+$argumente += @('-o', $OutputDirectory, '-v', 'q', '--nologo')
+
+& dotnet @argumente
 
 if ($LASTEXITCODE -ne 0) { throw "Veroeffentlichen fehlgeschlagen." }
 
@@ -58,4 +97,4 @@ $exe = Join-Path $OutputDirectory 'REGOwintergarden.exe'
 $fassung = ((Get-Item $exe).VersionInfo.ProductVersion -split '\+')[0]
 Write-Host ""
 Write-Host ("{0}  ({1:N1} MB, Fassung {2})" -f $exe, ((Get-Item $exe).Length / 1MB), $fassung) -ForegroundColor Green
-Write-Host "Einzelne Datei, laeuft ohne installiertes .NET." -ForegroundColor Green
+Write-Host $(if ($Eigenstaendig) { "Einzelne Datei, laeuft ohne installiertes .NET." } else { "Einzelne Datei. VERLANGT installiertes .NET 10 (NAS: dev\_.NET10)." }) -ForegroundColor Green
