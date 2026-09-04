@@ -55,15 +55,42 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
   throw "dotnet nicht gefunden. .NET SDK 8 installieren, siehe README."
 }
 
-# EINE DATEI BLEIBT ES, nur ohne eingebaute Laufzeit: PublishSingleFile
-# zusammen mit --self-contained false. Wer den Ordner weitergibt, gibt
-# weiterhin eine Datei weiter.
-$selbst = if ($Eigenstaendig) { 'true' } else { 'false' }
+# RAHMENABHAENGIG UND SEIT DEM 04.09.2026 NICHT MEHR GEBUENDELT.
+#
+# Hier entstand bis dahin eine einzelne Datei (PublishSingleFile zusammen mit
+# --self-contained false). Das ist zurueckgenommen, und zwar aus einem Grund,
+# der nichts mit dem Programm zu tun hat:
+#
+# Eine gebuendelte .NET-Einzeldatei ENTPACKT SICH BEIM START in ein
+# Temp-Verzeichnis und fuehrt sich von dort aus. Fuer die
+# Verhaltenserkennung von Defender ist das nicht von einem Packer zu
+# unterscheiden. Am 03.09.2026 hat sie REGOsound dreimal hintereinander
+# geloescht -- Behavior:Win32/DefenseEvasion.A!ml, die Endung !ml heisst
+# Mustererkennung und damit Fehlalarm.
+#
+# GETROFFEN HAT ES ZUERST REGOsound, DER AUSLOESER STECKT ABER IN JEDEM
+# GEBUENDELTEN WERKZEUG GLEICHERMASSEN. Deshalb vorbeugend abgeschaltet,
+# statt zu warten, bis es mitten in der Arbeit zuschlaegt -- und das tut es
+# dann beim Kunden, nicht hier.
+#
+# Der Preis sind ein paar kleine Dateien neben der EXE. Dafuer kommt der
+# Rueckfallweg zurueck: liegt die .dll daneben, laesst sich das Programm
+# ueber das von Microsoft signierte dotnet.exe starten, falls Windows die
+# EXE einmal abweist.
+#
+# EIGENSTAENDIG WIRD WEITER GEBUENDELT: dort ist die eine Datei der ganze
+# Zweck, und wer sie waehlt, nimmt den Fehlalarm bewusst in Kauf.
+#
+# Beide Schalter haengen am selben Hebel, meinen aber Verschiedenes:
+# --self-contained bestimmt, ob die Laufzeit mitkommt, PublishSingleFile, ob
+# alles in eine Datei wandert. Nur fuer den Kundenbesuch wird beides bejaht.
+$selbst   = if ($Eigenstaendig) { 'true' } else { 'false' }
+$buendeln = $selbst
 
 $argumente = @(
   'publish', (Join-Path $root 'src\REGOwintergarden\REGOwintergarden.csproj'),
   '-c', 'Release', '-r', 'win-x64', "--self-contained=$selbst",
-  '-p:PublishSingleFile=true',
+  "-p:PublishSingleFile=$buendeln",
   '-p:DebugType=none',
   '-p:AllowedReferenceRelatedFileExtensions=none'
 )
@@ -96,7 +123,8 @@ Steuert einen Wintergarten ueber KNX: Beschattung nach Sonnenstand.
 
 ## Starten
 
-**REGOwintergarden.exe** anklicken.
+**REGOwintergarden.exe** anklicken. Die kleinen Dateien daneben gehoeren dazu
+und muessen mitkopiert werden.
 
 **Verlangt installiertes .NET 10.** Fehlt es, sagt Windows das beim Start.
 Das Installationsprogramm liegt auf dem NAS unter
@@ -113,6 +141,15 @@ Ursache ist **Smart App Control**: es blockt unsignierte Programme ohne Ruf in
 der Microsoft-Cloud, und jeder neue Bau hat einen neuen Hash und ist damit
 unbekannt. Seitdem wird die Laufzeit vorausgesetzt statt mitgeliefert.
 
+## Warum mehrere Dateien und nicht eine
+
+Bis zum 04.09.2026 war es eine einzige Datei. Eine solche entpackt sich beim
+Start selbst in ein Temp-Verzeichnis -- und Defender hielt das bei REGOsound
+fuer einen Packer und loeschte das Programm. Ohne Buendelung entfaellt das
+Entpacken.
+
+Die Dateien neben der EXE gehoeren dazu. Einzeln kopiert laeuft nichts.
+
 Nicht geholfen haetten: selbst signieren (Smart App Control ignoriert lokal
 vertrauenswuerdige Zertifikate), ein Defender-Ausschluss (eigener Mechanismus)
 oder das Entfernen der Herkunftsmarkierung.
@@ -123,8 +160,10 @@ Sie bleibt eine unsignierte EXE. Beim Kopieren **vom NAS** bekommt sie
 ausserdem eine Herkunftsmarkierung, und Windows prueft dann schaerfer -- ein
 Fehlalarm ist moeglich.
 
-Zwei Wege:
+Drei Wege:
 
+- Ueber das signierte dotnet.exe starten -- das wird nie blockiert:
+  `dotnet REGOwintergarden.dll`
 - Die Herkunftsmarkierung entfernen:
   `Unblock-File .\REGOwintergarden.exe`
 - Oder eigenstaendig bauen (`publish.ps1 -Eigenstaendig`): dann ist die
@@ -143,4 +182,4 @@ $exe = Join-Path $OutputDirectory 'REGOwintergarden.exe'
 $fassung = ((Get-Item $exe).VersionInfo.ProductVersion -split '\+')[0]
 Write-Host ""
 Write-Host ("{0}  ({1:N1} MB, Fassung {2})" -f $exe, ((Get-Item $exe).Length / 1MB), $fassung) -ForegroundColor Green
-Write-Host $(if ($Eigenstaendig) { "Einzelne Datei, laeuft ohne installiertes .NET." } else { "Einzelne Datei. VERLANGT installiertes .NET 10 (NAS: dev\_.NET10)." }) -ForegroundColor Green
+Write-Host $(if ($Eigenstaendig) { "Einzelne Datei, laeuft ohne installiertes .NET." } else { "REGOwintergarden.exe plus die kleinen Dateien daneben - NICHT gebuendelt. VERLANGT installiertes .NET 10 (NAS: dev\_.NET10)." }) -ForegroundColor Green
